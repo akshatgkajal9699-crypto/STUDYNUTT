@@ -1,0 +1,24 @@
+kind = "mobile"
+previewPath = "/"
+title = "STUDYNUT"
+description = "A cross-platform study companion for Cambridge and IB students in Grades 6–10, with syllabus-aware practice, exam preparation, progress tracking, and tutor tools."
+version = "1.0.0"
+id = "artifacts/studynut"
+router = "expo-domain"
+
+[[services]]
+name = "expo"
+ensurePreviewReachable = "/status"
+paths = [ "/" ]
+localPort = 22380
+
+[services.development]
+run = "pnpm --filter @workspace/studynut run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/studynut", "run", "build" ]
+run = [ "pnpm", "--filter", "@workspace/studynut", "run", "serve" ]
+
+[services.env]
+PORT = "22380"
+BASE_PATH = "/"
