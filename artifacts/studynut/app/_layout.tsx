@@ -13,6 +13,8 @@ import {
 } from '@expo-google-fonts/inter';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
+import { ClerkLoaded, ClerkProvider, useAuth } from '@clerk/expo';
+import { tokenCache } from '@clerk/expo/token-cache';
 import { StudyProvider } from '@/context/StudyProvider';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
@@ -24,8 +26,34 @@ function RootLayoutNav() {
   return (
     <Stack screenOptions={{ headerBackTitle: 'Back' }}>
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+      <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+      <Stack.Screen name="library" options={{ headerShown: false }} />
     </Stack>
   );
+}
+
+function AppProviders({ storageScope = 'guest' }: { storageScope?: string }) {
+  return (
+    <SafeAreaProvider>
+      <StudyProvider storageScope={storageScope}>
+        <ErrorBoundary>
+          <QueryClientProvider client={queryClient}>
+            <GestureHandlerRootView style={{ flex: 1 }}>
+              <KeyboardProvider>
+                <RootLayoutNav />
+              </KeyboardProvider>
+            </GestureHandlerRootView>
+          </QueryClientProvider>
+        </ErrorBoundary>
+      </StudyProvider>
+    </SafeAreaProvider>
+  );
+}
+
+function ClerkApp() {
+  const { isSignedIn, userId } = useAuth();
+  const storageScope = isSignedIn && userId ? `user:${userId}` : 'guest';
+  return <AppProviders storageScope={storageScope} />;
 }
 
 export default function RootLayout() {
@@ -44,19 +72,24 @@ export default function RootLayout() {
 
   if (!fontsLoaded && !fontError) return null;
 
+  const publishableKey =
+    process.env.EXPO_PUBLIC_CLERK_PUBLISHABLE_KEY ||
+    process.env.VITE_CLERK_PUBLISHABLE_KEY;
+
+  if (!publishableKey) {
+    console.warn('Clerk publishable key is not available; running guest mode.');
+    return <AppProviders />;
+  }
+
   return (
-    <SafeAreaProvider>
-      <StudyProvider>
-        <ErrorBoundary>
-          <QueryClientProvider client={queryClient}>
-            <GestureHandlerRootView>
-              <KeyboardProvider>
-                <RootLayoutNav />
-              </KeyboardProvider>
-            </GestureHandlerRootView>
-          </QueryClientProvider>
-        </ErrorBoundary>
-      </StudyProvider>
-    </SafeAreaProvider>
+    <ClerkProvider
+      publishableKey={publishableKey}
+      tokenCache={tokenCache}
+      proxyUrl={process.env.EXPO_PUBLIC_CLERK_PROXY_URL || undefined}
+    >
+      <ClerkLoaded>
+        <ClerkApp />
+      </ClerkLoaded>
+    </ClerkProvider>
   );
 }

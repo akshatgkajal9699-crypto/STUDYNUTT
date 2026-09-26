@@ -1,7 +1,9 @@
 import React from 'react';
 import { Feather } from '@expo/vector-icons';
 import { Pressable, Text, View } from 'react-native';
-import { BodyText, Card, PageTitle, ProgressBar, Screen, SectionHeading, Tag, uiStyles } from '@/components/studynut-ui';
+import { useAuth, useUser } from '@clerk/expo';
+import { useRouter } from 'expo-router';
+import { ActionButton, BodyText, Card, PageTitle, ProgressBar, Screen, SectionHeading, Tag, uiStyles } from '@/components/studynut-ui';
 import { useStudy, useThemeMode } from '@/context/StudyProvider';
 import { findQuestion, subjectsForGrade } from '@/data/questions';
 import { useColors } from '@/hooks/useColors';
@@ -14,6 +16,9 @@ export default function ProfileScreen() {
   const { data, setGrade, setGoals, toggleBookmark, removeWeakSpot } = useStudy();
   const { mode, setMode } = useThemeMode();
   const colors = useColors();
+  const router = useRouter();
+  const { isSignedIn, signOut } = useAuth();
+  const { user } = useUser();
   const subjects = subjectsForGrade(data.grade);
   const questionProgress = Math.min(1, data.todayQuestions / Math.max(1, data.dailyTargetQuestions));
 
@@ -36,6 +41,34 @@ export default function ProfileScreen() {
           <Text style={{ color: colors.foreground, fontFamily: 'Inter_700Bold', fontSize: 17 }}>Your learning profile</Text>
           <Text style={{ color: colors.mutedForeground, fontFamily: 'Inter_400Regular', fontSize: 12 }}>Grade {data.grade} · Stage {data.grade + 1} · {data.grade <= 8 ? 'Lower Secondary / MYP' : 'IGCSE / MYP'}</Text>
         </View>
+      </Card>
+
+      <Card style={{ gap: 11, backgroundColor: isSignedIn ? colors.emeraldSoft : colors.primarySoft }}>
+        <View style={[uiStyles.row, uiStyles.gap12]}>
+          <Feather name={isSignedIn ? 'user-check' : 'log-in'} size={19} color={isSignedIn ? colors.emerald : colors.primary} />
+          <View style={{ flex: 1, gap: 3 }}>
+            <Text style={{ color: colors.foreground, fontFamily: 'Inter_700Bold', fontSize: 14 }}>
+              {isSignedIn ? 'Account connected' : 'Save your study space'}
+            </Text>
+            <BodyText style={{ fontSize: 12 }}>
+              {isSignedIn
+                ? user?.primaryEmailAddress?.emailAddress || 'Your signed-in account'
+                : 'Create an account to keep progress separate from other users on this device.'}
+            </BodyText>
+          </View>
+        </View>
+        {isSignedIn ? (
+          <ActionButton title="Sign out" icon="log-out" variant="secondary" onPress={() => signOut()} />
+        ) : (
+          <View style={[uiStyles.row, uiStyles.gap8]}>
+            <View style={{ flex: 1 }}>
+              <ActionButton title="Sign in" icon="log-in" onPress={() => router.push('/sign-in')} />
+            </View>
+            <View style={{ flex: 1 }}>
+              <ActionButton title="Create account" variant="secondary" onPress={() => router.push('/sign-up')} />
+            </View>
+          </View>
+        )}
       </Card>
 
       <View style={{ gap: 11 }}>
@@ -276,7 +309,7 @@ export default function ProfileScreen() {
           <Feather name="wifi-off" size={16} color={colors.emerald} />
           <Text style={{ color: colors.foreground, fontFamily: 'Inter_600SemiBold', fontSize: 13 }}>Offline-ready preview</Text>
         </View>
-        <BodyText style={{ fontSize: 12 }}>Your goals, bookmarks and sample practice progress are stored on this device. Cloud sync and official PDF downloads are not connected.</BodyText>
+        <BodyText style={{ fontSize: 12 }}>Your goals, bookmarks and sample practice progress are stored on this device and scoped to the active account when you sign in. Cloud sync is not connected.</BodyText>
       </Card>
     </Screen>
   );

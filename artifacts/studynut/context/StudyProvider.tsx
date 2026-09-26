@@ -80,20 +80,26 @@ function previousDateKey() {
   return dateKey(previous);
 }
 
-export function StudyProvider({ children }: PropsWithChildren) {
+export function StudyProvider({
+  children,
+  storageScope = 'guest',
+}: PropsWithChildren<{ storageScope?: string }>) {
   const [data, setData] = useState<StudyData>(DEFAULT_STUDY);
   const [ready, setReady] = useState(false);
   const [mode, setModeState] = useState<ThemeMode>('auto');
   const systemScheme = useColorScheme();
+  const scopedStorageKey = `${STORAGE_KEY}:${encodeURIComponent(storageScope)}`;
 
   useEffect(() => {
     let mounted = true;
     Promise.all([
-      AsyncStorage.getItem(STORAGE_KEY),
+      AsyncStorage.getItem(scopedStorageKey),
+      storageScope === 'guest' ? AsyncStorage.getItem(STORAGE_KEY) : Promise.resolve(null),
       AsyncStorage.getItem(THEME_KEY),
     ])
-      .then(([storedStudy, storedMode]) => {
+      .then(([scopedStudy, legacyStudy, storedMode]) => {
         if (!mounted) return;
+        const storedStudy = scopedStudy ?? (storageScope === 'guest' ? legacyStudy : null);
         if (storedStudy) {
           const parsed = JSON.parse(storedStudy) as Partial<StudyData>;
           const restored = { ...DEFAULT_STUDY, ...parsed };
@@ -122,14 +128,14 @@ export function StudyProvider({ children }: PropsWithChildren) {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [scopedStorageKey, storageScope]);
 
   useEffect(() => {
     if (!ready) return;
-    AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(data)).catch(
+    AsyncStorage.setItem(scopedStorageKey, JSON.stringify(data)).catch(
       (error: unknown) => console.warn('Could not save STUDYNUT progress.', error),
     );
-  }, [data, ready]);
+  }, [data, ready, scopedStorageKey]);
 
   const setGrade = useCallback((grade: number) => {
     setData((current) => ({

@@ -1,0 +1,1 @@
+- [Expo package maturity](expo-package-maturity.md) — the workspace package firewall can reject newest SDK releases; prefer the latest mature compatible version.

@@ -34,6 +34,13 @@ const MIME_TYPES = {
   '.otf': 'font/otf',
   '.map': 'application/json',
 };
+const EXPO_PLATFORMS = new Set(['ios', 'android']);
+
+function safePathWithinRoot(candidate) {
+  const relative = path.relative(STATIC_ROOT, candidate);
+  return relative !== '' && !relative.startsWith('..' + path.sep) &&
+    !path.isAbsolute(relative);
+}
 
 function getAppName() {
   try {
@@ -64,7 +71,18 @@ function toScriptString(value) {
 }
 
 function serveManifest(platform, res) {
-  const manifestPath = path.join(STATIC_ROOT, platform, 'manifest.json');
+  if (!EXPO_PLATFORMS.has(platform)) {
+    res.writeHead(400, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ error: 'Unsupported platform' }));
+    return;
+  }
+
+  const manifestPath = path.resolve(STATIC_ROOT, platform, 'manifest.json');
+  if (!safePathWithinRoot(manifestPath)) {
+    res.writeHead(403);
+    res.end('Forbidden');
+    return;
+  }
 
   if (!fs.existsSync(manifestPath)) {
     res.writeHead(404, { 'content-type': 'application/json' });
@@ -74,6 +92,8 @@ function serveManifest(platform, res) {
     return;
   }
 
+  // Validated against EXPO_PLATFORMS and constrained to STATIC_ROOT above.
+  // nosemgrep: javascript.express.file.fs-express.fs-express
   const manifest = fs.readFileSync(manifestPath, 'utf-8');
   res.writeHead(200, {
     'content-type': 'application/json',
@@ -101,10 +121,19 @@ function serveLandingPage(req, res, landingPageTemplate, appName) {
 }
 
 function serveStaticFile(urlPath, res) {
-  const safePath = path.normalize(urlPath).replace(/^(\.\.(\/|\\|$))+/, '');
-  const filePath = path.join(STATIC_ROOT, safePath);
+  let decodedPath;
+  try {
+    decodedPath = decodeURIComponent(urlPath);
+  } catch {
+    res.writeHead(400);
+    res.end('Invalid path');
+    return;
+  }
 
-  if (!filePath.startsWith(STATIC_ROOT)) {
+  const safePath = path.normalize(decodedPath).replace(/^(\.\.(\/|\\|$))+/, '');
+  const filePath = path.resolve(STATIC_ROOT, safePath);
+
+  if (!safePathWithinRoot(filePath)) {
     res.writeHead(403);
     res.end('Forbidden');
     return;
@@ -118,6 +147,8 @@ function serveStaticFile(urlPath, res) {
 
   const ext = path.extname(filePath).toLowerCase();
   const contentType = MIME_TYPES[ext] || 'application/octet-stream';
+  // safePathWithinRoot rejects absolute paths and traversal outside STATIC_ROOT.
+  // nosemgrep: javascript.express.file.fs-express.fs-express
   const content = fs.readFileSync(filePath);
   res.writeHead(200, { 'content-type': contentType });
   res.end(content);

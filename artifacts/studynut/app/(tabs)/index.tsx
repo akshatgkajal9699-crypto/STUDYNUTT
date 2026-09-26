@@ -268,6 +268,26 @@ export default function HomeScreen() {
           </Card>
         )}
       </View>
+
+      <Card style={{ backgroundColor: colors.surfaceRaised, gap: 12 }}>
+        <View style={[uiStyles.row, uiStyles.gap12]}>
+          <View style={{
+            width: 42,
+            height: 42,
+            borderRadius: 15,
+            backgroundColor: colors.primarySoft,
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}>
+            <Feather name="layers" size={19} color={colors.primary} />
+          </View>
+          <View style={{ flex: 1, gap: 3 }}>
+            <Text style={{ color: colors.foreground, fontFamily: 'Inter_700Bold', fontSize: 14 }}>Build your revision library</Text>
+            <BodyText style={{ fontSize: 12 }}>Open original study guides, tap-through flashcards, mind maps, and PDF export.</BodyText>
+          </View>
+        </View>
+        <ActionButton title="Open learning library" icon="arrow-right" onPress={() => router.push('/library')} />
+      </Card>
     </Screen>
   );
 }
