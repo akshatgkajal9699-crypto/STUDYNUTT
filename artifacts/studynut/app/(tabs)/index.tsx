@@ -7,6 +7,7 @@ import { ActionButton, BodyText, Card, PageTitle, ProgressBar, Screen, SectionHe
 import { useStudy } from '@/context/StudyProvider';
 import { useColors } from '@/hooks/useColors';
 import { findQuestion, subjectsForGrade } from '@/data/questions';
+import { LEARNING_CONTENT } from '@/data/learning-content';
 
 function stageForGrade(grade: number) {
   return `Stage ${grade + 1}`;
@@ -36,6 +37,33 @@ export default function HomeScreen() {
     data.todayMinutes / Math.max(1, data.dailyTargetMinutes),
   );
   const countdown = examWindowLabel();
+  const learningPack =
+    LEARNING_CONTENT[data.subject as keyof typeof LEARNING_CONTENT] ??
+    LEARNING_CONTENT.Mathematics;
+  const nextChapter = learningPack.chapters[0];
+  const studyPlan = [
+    {
+      title: 'Warm up with questions',
+      detail: `${Math.min(data.todayQuestions, 5)} of 5 complete`,
+      icon: 'edit-3' as const,
+      complete: data.todayQuestions >= 5,
+      onPress: () => router.push('/practice'),
+    },
+    {
+      title: 'Read one study chapter',
+      detail: nextChapter.title,
+      icon: 'book-open' as const,
+      complete: data.todayMinutes >= 10,
+      onPress: () => router.push('/library'),
+    },
+    {
+      title: 'Check your recall',
+      detail: 'Try a timed paper',
+      icon: 'clock' as const,
+      complete: data.completedExams > 0,
+      onPress: () => router.push('/exams'),
+    },
+  ];
 
   return (
     <Screen>
@@ -158,6 +186,68 @@ export default function HomeScreen() {
           <Text style={{ color: colors.mutedForeground, fontFamily: 'Inter_400Regular', fontSize: 11, lineHeight: 16 }}>
             {data.completedExams === 0 ? 'Your first paper is waiting.' : 'Nice work. Keep building confidence.'}
           </Text>
+        </Card>
+      </View>
+
+      <View style={{ gap: 12 }}>
+        <SectionHeading title="Today's study plan" action={`${studyPlan.filter((item) => item.complete).length} of 3 done`} />
+        <Card style={{ paddingVertical: 6, gap: 0 }}>
+          {studyPlan.map((item, index) => (
+            <Pressable
+              key={item.title}
+              accessibilityRole="button"
+              accessibilityState={{ selected: item.complete }}
+              testID={`study-plan-${index}`}
+              onPress={item.onPress}
+              style={({ pressed }) => ({
+                minHeight: 68,
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 12,
+                borderBottomWidth: index === studyPlan.length - 1 ? 0 : 1,
+                borderBottomColor: colors.border,
+                opacity: pressed ? 0.7 : 1,
+              })}
+            >
+              <View
+                style={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: 12,
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  backgroundColor: item.complete ? colors.emeraldSoft : colors.primarySoft,
+                }}
+              >
+                <Feather
+                  name={item.complete ? 'check' : item.icon}
+                  size={17}
+                  color={item.complete ? colors.emerald : colors.primary}
+                />
+              </View>
+              <View style={{ flex: 1, gap: 3 }}>
+                <Text
+                  style={{
+                    color: colors.foreground,
+                    fontFamily: 'Inter_600SemiBold',
+                    fontSize: 13,
+                  }}
+                >
+                  {item.title}
+                </Text>
+                <Text
+                  style={{
+                    color: colors.mutedForeground,
+                    fontFamily: 'Inter_400Regular',
+                    fontSize: 12,
+                  }}
+                >
+                  {item.detail}
+                </Text>
+              </View>
+              <Feather name="chevron-right" size={17} color={colors.mutedForeground} />
+            </Pressable>
+          ))}
         </Card>
       </View>
 
