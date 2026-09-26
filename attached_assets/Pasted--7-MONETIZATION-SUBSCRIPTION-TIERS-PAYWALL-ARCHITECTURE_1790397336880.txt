@@ -1,0 +1,91 @@
+## 7. MONETIZATION, SUBSCRIPTION TIERS & PAYWALL ARCHITECTURE
+
+### A. Subscription Pricing Matrix & Billing Logic
+
+STUDYNUT operates on a Freemium subscription model designed to maximize acquisition while driving high conversion through high-value AI evaluation, voice examination, and Cambridge-specific exam simulation features.
+
+* **Free Tier (Acquisition Hook):** Unlimited access to standard notes, formula sheets, and basic MCQs. Restricted access to hero conversion features to demonstrate value.
+* **PRO Subscriptions (Unrestricted Access):**
+  * **Monthly Plan:** `$3.99 / month` (Short-term exam crash course)
+  * **6-Month Plan:** `$17.99 / 6 months` (~$2.99/month — 25% savings)
+  * **Yearly Plan:** `$29.99 / year` (~$2.49/month — 37% best value savings)
+  * **Trial Period:** 7-Day Free Trial offered on 6-Month and Yearly plans with App Store / Play Store / Stripe billing integration.
+
+---
+
+### B. Hero Paid Features & Quota Enforcement
+
+The backend API and state management layer MUST enforce strict entitlement checks for the four core high-converting features:
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                          FEATURE ACCESS CONTROL MATRIX                       │
+├─────────────────────────────────────┬──────────────────┬────────────────────┤
+│ FEATURE                             │ FREE TIER        │ PRO TIER           │
+├─────────────────────────────────────┼──────────────────┼────────────────────┤
+│ 1. Reverse Mark Scheme Engine       │ 1 Scan / Week    │ UNLIMITED          │
+│    (Handwritten OCR Paper Grading)  │ (Trial Hook)     │ Full Annotations   │
+├─────────────────────────────────────┼──────────────────┼────────────────────┤
+│ 2. Digital CBT Exam Simulator       │ Standard Mode    │ UNLIMITED          │
+│    (Cambridge On-Screen Test UI)    │ (No Timed CBT)   │ Paper 2/4 Exam UI  │
+├─────────────────────────────────────┼──────────────────┼────────────────────┤
+│ 3. Command Term Keyword Highlighter │ Basic Terms      │ UNLIMITED          │
+│    (Exam Board Rubric Safeguard)    │ (Static Display) │ Interactive Cards  │
+├─────────────────────────────────────┼──────────────────┼────────────────────┤
+│ 4. Socratic Ghost Mode              │ 1 Session / Mo   │ UNLIMITED          │
+│    (Real-Time Voice AI Examiner)    │ (60-Sec Trial)   │ Full Viva Sessions │
+└─────────────────────────────────────┴──────────────────┴────────────────────┘
+
+#### 1. Reverse Mark Scheme Engine (Handwritten Paper Grader & OCR)
+* **Free Tier:** 1 free handwritten paper evaluation per week.
+* **PRO Tier:** Unlimited scans.
+* **Execution Logic:**
+  * Student snaps a photo of handwritten work on physical paper.
+  * Backend processes image using Multimodal Vision OCR and evaluates against official Cambridge mark schemes.
+  * Overlays digital visual feedback (`+1 Method Mark`, `-1 Accuracy Mark`, `Missing Units Alert`) directly onto the student's handwritten image.
+
+#### 2. Digital Paper 2 & 4 CBT Simulator (Cambridge On-Screen Mode)
+* **Free Tier:** Standard untimed practice quizzes.
+* **PRO Tier:** Unlocks full **Cambridge On-Screen Exam Simulator**.
+* **Execution Logic:**
+  * Replicates Cambridge's official digital assessment interface: side-by-side question viewer, strike-through option eliminators, flag-for-review tools, on-screen non-calculator scratchpad, and countdown timer.
+  * Generates post-exam analytics tracking time spent per question and pacing bottlenecks.
+
+#### 3. Command Term Keyword Highlighter
+* **Free Tier:** Shows basic static definitions for words like *State* or *Describe*.
+* **PRO Tier:** Unlocks real-time contextual **Command Term Rubric Cards** across all Paper 4 structured theory questions.
+* **Execution Logic:**
+  * Highlights keywords (*Evaluate, Calculate, Explain, Suggest, Describe*) in gold text.
+  * Tapping the word displays Cambridge mark-scheme rules explaining how many points are allocated and common mistakes that result in lost marks.
+
+#### 4. Socratic Ghost Mode (Real-Time Voice AI Examiner)
+* **Free Tier:** 1 free session per month (capped at 60 seconds).
+* **PRO Tier:** Unlimited full-length viva oral sessions.
+* **Execution Logic:**
+  * Uses WebRTC / Real-Time Voice API to act as an official Cambridge oral examiner.
+  * Asks rapid-fire conceptual questions after a student completes an IGCSE topic.
+  * Listens to the student's spoken response and evaluates it against Cambridge command term rubrics (*Describe, Explain, Evaluate*) with instant verbal feedback.
+
+---
+
+### C. Paywall UI & Trigger Architecture
+
+The app MUST trigger a high-converting Glassmorphic Paywall Modal in the following scenarios:
+
+1. **Quota Exceeded Trigger:** When a free user attempts their 2nd handwritten paper scan in a single week.
+2. **CBT Mode Trigger:** When a free user taps "Launch On-Screen Exam Mode" inside any past paper.
+3. **Command Card Trigger:** When a free user taps an advanced command term rubric card.
+4. **Ghost Mode Trigger:** When a free user attempts a 2nd voice examination session or exceeds the 60-second trial cap.
+
+#### Paywall UI Layout Specifications:
+* **Header:** "Unlock Cambridge Board Mastery with STUDYNUT PRO"
+* **Feature Highlights:**
+  * 📸 Unlimited Handwritten Paper Grading (Stop Losing Working-Out Marks)
+  * 🎙️ Socratic Ghost Mode (Interactive Voice AI Cambridge Examiner)
+  * 💻 Official Cambridge On-Screen Exam Simulator (Practice Under Real Test Conditions)
+  * 🎯 Command Term Trap Radar & Full Step-by-Step Mark Schemes
+* **Plan Selector Cards (Default selection: Yearly Plan):**
+  * `[ YEARLY ] $29.99 / yr  (SAVE 37% - $2.49/mo)  -> BEST VALUE`
+  * `[ 6-MONTH ] $17.99 / 6 mos ($2.99/mo)          -> POPULAR`
+  * `[ MONTHLY ] $3.99 / mo`
+* **Call to Action Button:** "Start 7-Day Free Trial" (switches to "Upgrade Now" for Monthly).
+* **Footer:** "Cancel anytime via App Store / Play Store settings. No long-term commitments."
