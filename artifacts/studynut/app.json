@@ -14,17 +14,21 @@
     "web": {
       "favicon": "./assets/images/studynut-icon.png"
     },
-    "splash": {
-      "image": "./assets/images/studynut-icon.png",
-      "resizeMode": "contain",
-      "backgroundColor": "#F8FAFC"
-    },
     "plugins": [
       "expo-router",
       "@clerk/expo",
       "expo-secure-store",
       "expo-web-browser",
-      "expo-sharing"
+      "expo-sharing",
+      "expo-asset",
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/images/studynut-icon.png",
+          "resizeMode": "contain",
+          "backgroundColor": "#F8FAFC"
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
