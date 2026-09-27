@@ -7,6 +7,7 @@ import { ActionButton, BodyText, Card, PageTitle, ProgressBar, Screen, SectionHe
 import { useStudy, useThemeMode } from '@/context/StudyProvider';
 import { findQuestion, subjectsForGrade } from '@/data/questions';
 import { useColors } from '@/hooks/useColors';
+import { useSubscription } from '@/lib/revenuecat';
 
 const GRADES = [6, 7, 8, 9, 10];
 const STUDY_GOALS = [15, 30, 45, 60];
@@ -19,12 +20,13 @@ export default function ProfileScreen() {
   const router = useRouter();
   const { isSignedIn, signOut } = useAuth();
   const { user } = useUser();
+  const { isPro, showPaywall, restorePurchases, manageSubscription, usage, ready } = useSubscription();
   const subjects = subjectsForGrade(data.grade);
   const questionProgress = Math.min(1, data.todayQuestions / Math.max(1, data.dailyTargetQuestions));
 
   return (
     <Screen>
-      <PageTitle eyebrow="YOUR STUDY SPACE" title="Profile & progress" subtitle="A few settings to make STUDYNUT fit your year." right={<Tag tone="green">On this device</Tag>} />
+      <PageTitle eyebrow="YOUR STUDY SPACE" title="Profile & progress" subtitle="A few settings to make STUDYNUT fit your year." right={<Tag tone={isPro ? 'green' : 'primary'}>{isPro ? 'PRO' : 'FREE'}</Tag>} />
 
       <Card style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
         <View style={{
@@ -41,6 +43,35 @@ export default function ProfileScreen() {
           <Text style={{ color: colors.foreground, fontFamily: 'Inter_700Bold', fontSize: 17 }}>Your learning profile</Text>
           <Text style={{ color: colors.mutedForeground, fontFamily: 'Inter_400Regular', fontSize: 12 }}>Grade {data.grade} · Stage {data.grade + 1} · {data.grade <= 8 ? 'Lower Secondary / MYP' : 'IGCSE / MYP'}</Text>
         </View>
+      </Card>
+
+      <Card style={{ gap: 11, backgroundColor: isPro ? colors.emeraldSoft : colors.primarySoft }}>
+        <View style={[uiStyles.row, uiStyles.gap12]}>
+          <View style={{ width: 40, height: 40, borderRadius: 14, backgroundColor: isPro ? colors.emerald : colors.primary, alignItems: 'center', justifyContent: 'center' }}>
+            <Feather name={isPro ? 'check' : 'zap'} size={18} color={colors.primaryForeground} />
+          </View>
+          <View style={{ flex: 1, gap: 3 }}>
+            <Text style={{ color: colors.foreground, fontFamily: 'Inter_700Bold', fontSize: 15 }}>{isPro ? 'STUDYNUT PRO is active' : 'Study more with PRO'}</Text>
+            <BodyText style={{ fontSize: 12 }}>
+              {isPro ? 'Timed papers, unlimited scans and longer Ghost Mode sessions are unlocked.' : 'Free includes untimed practice, one weekly scan and one 60-second Ghost Mode session each month.'}
+            </BodyText>
+          </View>
+        </View>
+        {isPro ? (
+          <ActionButton title="Manage subscription" icon="external-link" variant="secondary" onPress={manageSubscription} testID="manage-subscription-profile" />
+        ) : (
+          <ActionButton title="See PRO plans" icon="zap" onPress={() => showPaywall('free-limit')} testID="open-pro-plans" />
+        )}
+        {!isPro && ready ? (
+          <Pressable accessibilityRole="button" testID="restore-profile" onPress={restorePurchases} style={{ alignSelf: 'center', padding: 3 }}>
+            <Text style={{ color: colors.primary, fontFamily: 'Inter_600SemiBold', fontSize: 12 }}>Restore purchases</Text>
+          </Pressable>
+        ) : null}
+        {!isPro ? (
+          <Text style={{ color: colors.mutedForeground, fontFamily: 'Inter_400Regular', fontSize: 11 }}>
+            This month: {usage.ghostSessions}/1 Ghost Mode session · This week: {usage.scanCount}/1 handwritten scan
+          </Text>
+        ) : null}
       </Card>
 
       <Card style={{ gap: 11, backgroundColor: isSignedIn ? colors.emeraldSoft : colors.primarySoft }}>

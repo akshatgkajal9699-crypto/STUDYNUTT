@@ -5,6 +5,7 @@ import { ActionButton, BodyText, Card, PageTitle, ProgressBar, Screen, SectionHe
 import { StudyQuestion, WrittenPrompt, questionsForSubject, subjectsForGrade, WRITTEN_PROMPTS } from '@/data/questions';
 import { useStudy } from '@/context/StudyProvider';
 import { useColors } from '@/hooks/useColors';
+import { useSubscription } from '@/lib/revenuecat';
 
 type ExamMode = 'mcq' | 'written';
 interface ExamSession {
@@ -19,6 +20,7 @@ interface ExamSession {
   selectedIndex: number | null;
   answerText: string;
   revealed: boolean;
+  isTimed: boolean;
   mcqQuestions: StudyQuestion[];
   writtenQuestions: WrittenPrompt[];
 }
@@ -45,6 +47,7 @@ function formatTime(seconds: number) {
 
 export default function ExamsScreen() {
   const { data, recordQuestion, recordExam, setSubject } = useStudy();
+  const { isPro, showPaywall } = useSubscription();
   const colors = useColors();
   const subjects = subjectsForGrade(data.grade);
   const subject = subjects.includes(data.subject) ? data.subject : 'Mathematics';
@@ -77,6 +80,7 @@ export default function ExamsScreen() {
   useEffect(() => {
     if (!session) return;
     const tick = () => {
+      if (!session.isTimed) return;
       const remaining = Math.max(0, Math.ceil((session.endsAt - Date.now()) / 1000));
       setSecondsLeft(remaining);
       if (remaining === 0) completionRef.current?.();
@@ -88,6 +92,11 @@ export default function ExamsScreen() {
 
   function startExam(kind: 'paper2' | 'paper4' | 'custom') {
     const isWritten = kind === 'paper4';
+    if (kind !== 'custom' && !isPro) {
+      showPaywall(kind === 'paper2' ? 'paper-2' : 'paper-4');
+      return;
+    }
+    const isTimed = isPro || kind !== 'custom';
     const selectedSubject = kind === 'custom' ? customSubject : subject;
     const chosenSubject =
       isWritten && !WRITTEN_QUESTIONS[selectedSubject]
@@ -122,6 +131,7 @@ export default function ExamsScreen() {
       selectedIndex: null,
       answerText: '',
       revealed: false,
+      isTimed,
       mcqQuestions: mcqQuestions.slice(0, 5),
       writtenQuestions: writtenSet,
     });
@@ -185,11 +195,11 @@ export default function ExamsScreen() {
             paddingHorizontal: 12,
             paddingVertical: 9,
             borderRadius: 14,
-            backgroundColor: secondsLeft < 300 ? colors.warningSoft : colors.primarySoft,
+             backgroundColor: session.isTimed && secondsLeft < 300 ? colors.warningSoft : colors.primarySoft,
           }]}>
-            <Feather name="clock" size={15} color={secondsLeft < 300 ? colors.warning : colors.primary} />
-            <Text accessibilityLiveRegion="polite" style={{ color: secondsLeft < 300 ? colors.warning : colors.primary, fontFamily: 'Inter_700Bold', fontSize: 13, fontVariant: ['tabular-nums'] }}>
-              {formatTime(secondsLeft)}
+             <Feather name={session.isTimed ? 'clock' : 'coffee'} size={15} color={session.isTimed && secondsLeft < 300 ? colors.warning : colors.primary} />
+             <Text accessibilityLiveRegion="polite" style={{ color: session.isTimed && secondsLeft < 300 ? colors.warning : colors.primary, fontFamily: 'Inter_700Bold', fontSize: 13, fontVariant: ['tabular-nums'] }}>
+               {session.isTimed ? formatTime(secondsLeft) : 'Untimed'}
             </Text>
           </View>
         </View>
@@ -291,7 +301,7 @@ export default function ExamsScreen() {
 
   return (
     <Screen>
-      <PageTitle eyebrow={`Grade ${data.grade} · Exam prep`} title="Exam simulator" subtitle="Practise with a timer and work through sample questions." />
+       <PageTitle eyebrow={`Grade ${data.grade} · Exam prep`} title="Exam simulator" subtitle="Build confidence with untimed practice or unlock the full timer with PRO." />
       {examResult ? (
         <Card style={{ backgroundColor: colors.emeraldSoft, borderColor: colors.emeraldSoft }}>
           <View style={[uiStyles.row, uiStyles.gap12]}>
@@ -320,7 +330,7 @@ export default function ExamsScreen() {
           </View>
           <Tag>45 min</Tag>
         </View>
-        <ActionButton title="Start Paper 2" icon="play" onPress={() => startExam('paper2')} testID="start-paper-2" />
+         <ActionButton title={isPro ? 'Start Paper 2' : 'Unlock with PRO'} icon={isPro ? 'play' : 'lock'} onPress={() => startExam('paper2')} testID="start-paper-2" />
       </Card>
 
       <Card style={{ gap: 13 }}>
@@ -334,7 +344,7 @@ export default function ExamsScreen() {
           </View>
           <Tag tone="green">2 hours</Tag>
         </View>
-        <ActionButton title="Start Paper 4" icon="play" variant="secondary" onPress={() => startExam('paper4')} testID="start-paper-4" />
+         <ActionButton title={isPro ? 'Start Paper 4' : 'Unlock with PRO'} icon={isPro ? 'play' : 'lock'} variant="secondary" onPress={() => startExam('paper4')} testID="start-paper-4" />
         <Text style={{ color: colors.mutedForeground, fontFamily: 'Inter_400Regular', fontSize: 11, lineHeight: 16 }}>Sample prompts and marking guides are for practice only, not official Cambridge papers.</Text>
       </Card>
 
@@ -411,7 +421,7 @@ export default function ExamsScreen() {
               ))}
             </View>
           </View>
-          <ActionButton title="Create custom paper" icon="sliders" onPress={() => startExam('custom')} testID="start-custom-exam" />
+           <ActionButton title="Create untimed custom paper" icon="sliders" onPress={() => startExam('custom')} testID="start-custom-exam" />
         </Card>
       </View>
       <View style={[uiStyles.row, uiStyles.gap8, { paddingHorizontal: 2 }]}>

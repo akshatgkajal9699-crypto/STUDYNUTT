@@ -18,3 +18,15 @@ expertMode = true
 [postMerge]
 path = "scripts/post-merge.sh"
 timeoutMs = 20000
+
+[nix]
+channel = "stable-25_05"
+
+[userenv]
+
+[userenv.shared]
+EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY = "goog_OLhUMFaxjrouWeijigsdHqXRCVo"
+EXPO_PUBLIC_REVENUECAT_IOS_API_KEY = "appl_bPwWgBvDulggHifjiVRKJKdYoJe"
+REVENUECAT_APPLE_APP_STORE_APP_ID = "app2c1ee3700e"
+REVENUECAT_GOOGLE_PLAY_STORE_APP_ID = "app056505cc99"
+REVENUECAT_PROJECT_ID = "proj0334fae3"

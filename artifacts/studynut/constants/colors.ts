@@ -39,6 +39,7 @@ const colors = {
     warning: '#F59E0B',
     warningSoft: '#FEF3C7',
     coral: '#F97366',
+    overlay: 'rgba(15, 23, 42, 0.58)',
   },
   dark: {
     text: '#F8FAFC',
@@ -66,6 +67,7 @@ const colors = {
     warning: '#FBBF24',
     warningSoft: '#3B2D13',
     coral: '#FB8B7D',
+    overlay: 'rgba(0, 0, 0, 0.62)',
   },
 
   radius: 20,

@@ -60,6 +60,7 @@
     "expo-crypto": "57.0.3",
     "expo-print": "57.0.2",
     "expo-secure-store": "57.0.3",
-    "expo-sharing": "57.0.21"
+    "expo-sharing": "57.0.21",
+    "react-native-purchases": "10.10.2"
   }
 }

@@ -16,6 +16,7 @@ import * as SplashScreen from 'expo-splash-screen';
 import { ClerkLoaded, ClerkProvider, useAuth } from '@clerk/expo';
 import { tokenCache } from '@clerk/expo/token-cache';
 import { StudyProvider } from '@/context/StudyProvider';
+import { SubscriptionProvider } from '@/lib/revenuecat';
 
 // Prevent the splash screen from auto-hiding before asset loading is complete.
 SplashScreen.preventAutoHideAsync();
@@ -33,18 +34,23 @@ function RootLayoutNav() {
 }
 
 function AppProviders({ storageScope = 'guest' }: { storageScope?: string }) {
+  const appUserId = storageScope.startsWith('user:')
+    ? storageScope.slice('user:'.length)
+    : undefined;
   return (
     <SafeAreaProvider>
       <StudyProvider storageScope={storageScope}>
-        <ErrorBoundary>
-          <QueryClientProvider client={queryClient}>
-            <GestureHandlerRootView style={{ flex: 1 }}>
-              <KeyboardProvider>
-                <RootLayoutNav />
-              </KeyboardProvider>
-            </GestureHandlerRootView>
-          </QueryClientProvider>
-        </ErrorBoundary>
+        <SubscriptionProvider appUserId={appUserId}>
+          <ErrorBoundary>
+            <QueryClientProvider client={queryClient}>
+              <GestureHandlerRootView style={{ flex: 1 }}>
+                <KeyboardProvider>
+                  <RootLayoutNav />
+                </KeyboardProvider>
+              </GestureHandlerRootView>
+            </QueryClientProvider>
+          </ErrorBoundary>
+        </SubscriptionProvider>
       </StudyProvider>
     </SafeAreaProvider>
   );
