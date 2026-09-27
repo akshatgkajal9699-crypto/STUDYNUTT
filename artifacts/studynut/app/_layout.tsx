@@ -13,7 +13,7 @@ import {
 } from '@expo-google-fonts/inter';
 import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { ClerkLoaded, ClerkProvider, useAuth } from '@clerk/expo';
+import { ClerkProvider, useAuth } from '@clerk/expo';
 import { tokenCache } from '@clerk/expo/token-cache';
 import { StudyProvider } from '@/context/StudyProvider';
 import { SubscriptionProvider } from '@/lib/revenuecat';
@@ -29,6 +29,8 @@ function RootLayoutNav() {
       <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
       <Stack.Screen name="(auth)" options={{ headerShown: false }} />
       <Stack.Screen name="library" options={{ headerShown: false }} />
+      <Stack.Screen name="scan" options={{ headerShown: false }} />
+      <Stack.Screen name="ghost" options={{ headerShown: false }} />
     </Stack>
   );
 }
@@ -93,9 +95,7 @@ export default function RootLayout() {
       tokenCache={tokenCache}
       proxyUrl={process.env.EXPO_PUBLIC_CLERK_PROXY_URL || undefined}
     >
-      <ClerkLoaded>
-        <ClerkApp />
-      </ClerkLoaded>
+      <ClerkApp />
     </ClerkProvider>
   );
 }

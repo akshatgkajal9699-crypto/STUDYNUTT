@@ -33,6 +33,7 @@ export type PaidFeature =
   | 'paper-4'
   | 'timed-custom'
   | 'handwritten-scan'
+  | 'command-term'
   | 'ghost-mode';
 
 export type PaywallReason =
@@ -123,6 +124,12 @@ function reasonCopy(reason: PaywallReason | null) {
         eyebrow: 'HANDWRITTEN SCAN',
         title: 'Scan more of your work',
         body: 'Free includes one handwritten-paper scan each week. PRO removes the weekly limit.',
+      };
+    case 'command-term':
+      return {
+        eyebrow: 'COMMAND TERM CARDS',
+        title: 'See how marks are awarded',
+        body: 'Free members can review the basic command-term definitions. PRO unlocks the contextual rubric cards and common mark-loss traps.',
       };
     case 'ghost-mode':
       return {
@@ -320,6 +327,7 @@ export function SubscriptionProvider({
       if (isPro) return true;
       if (feature === 'handwritten-scan') return usage.scanCount < 1;
       if (feature === 'ghost-mode') return usage.ghostSessions < 1;
+      if (feature === 'command-term') return false;
       return false;
     },
     [isPro, usage.ghostSessions, usage.scanCount],

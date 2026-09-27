@@ -317,7 +317,7 @@ export default function TabLayout() {
   if (Platform.OS === 'web' && width >= 800) {
     return <DesktopTabLayout />;
   }
-  if (isLiquidGlassAvailable()) {
+  if (Platform.OS === 'ios' && isLiquidGlassAvailable()) {
     return <NativeTabLayout />;
   }
   return <ClassicTabLayout />;

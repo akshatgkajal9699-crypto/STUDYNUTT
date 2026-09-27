@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { Feather } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { FlatList, Keyboard, Platform, Pressable, Text, TextInput, View } from 'react-native';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -57,6 +58,7 @@ export default function TutorScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const { data } = useStudy();
+  const router = useRouter();
   const [messages, setMessages] = useState<ChatMessage[]>([STARTER_MESSAGE]);
   const [draft, setDraft] = useState('');
   function sendMessage(text = draft) {
@@ -93,9 +95,55 @@ export default function TutorScreen() {
       <Card style={{ padding: 12, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
         <Feather name="info" size={16} color={colors.primary} />
         <Text style={{ flex: 1, color: colors.mutedForeground, fontFamily: 'Inter_400Regular', fontSize: 11, lineHeight: 16 }}>
-          Built-in guide mode. Live AI, camera solving and image analysis are not connected in this build.
+           Built-in guide mode. Use the exam tools for a paper-scan preview or a spoken Ghost Mode session.
         </Text>
       </Card>
+      <View style={[uiStyles.row, uiStyles.gap8]}>
+        <View style={{ flex: 1 }}>
+          <Pressable
+            accessibilityRole="button"
+            testID="tutor-paper-scan"
+            onPress={() => router.push('/scan')}
+            style={({ pressed }) => ({
+              minHeight: 43,
+              borderRadius: 14,
+              borderWidth: 1,
+              borderColor: colors.border,
+              backgroundColor: colors.card,
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 5,
+              flexDirection: 'row',
+              opacity: pressed ? 0.75 : 1,
+            })}
+          >
+            <Feather name="camera" size={15} color={colors.primary} />
+            <Text style={{ color: colors.foreground, fontFamily: 'Inter_600SemiBold', fontSize: 12 }}>Scan working</Text>
+          </Pressable>
+        </View>
+        <View style={{ flex: 1 }}>
+          <Pressable
+            accessibilityRole="button"
+            testID="tutor-ghost-mode"
+            onPress={() => router.push('/ghost')}
+            style={({ pressed }) => ({
+              minHeight: 43,
+              borderRadius: 14,
+              borderWidth: 1,
+              borderColor: colors.border,
+              backgroundColor: colors.card,
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: 5,
+              flexDirection: 'row',
+              opacity: pressed ? 0.75 : 1,
+            })}
+          >
+            <Feather name="mic" size={15} color={colors.primary} />
+            <Text style={{ color: colors.foreground, fontFamily: 'Inter_600SemiBold', fontSize: 12 }}>Ghost Mode</Text>
+          </Pressable>
+        </View>
+      </View>
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 7 }}>
         {SUGGESTIONS.map((suggestion) => (
           <Pressable

@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Feather } from '@expo/vector-icons';
 import { Pressable, Text, TextInput, View } from 'react-native';
+import { useRouter } from 'expo-router';
 import { ActionButton, BodyText, Card, PageTitle, ProgressBar, Screen, SectionHeading, Tag, uiStyles } from '@/components/studynut-ui';
 import { StudyQuestion, WrittenPrompt, questionsForSubject, subjectsForGrade, WRITTEN_PROMPTS } from '@/data/questions';
 import { useStudy } from '@/context/StudyProvider';
@@ -49,6 +50,7 @@ export default function ExamsScreen() {
   const { data, recordQuestion, recordExam, setSubject } = useStudy();
   const { isPro, showPaywall } = useSubscription();
   const colors = useColors();
+  const router = useRouter();
   const subjects = subjectsForGrade(data.grade);
   const subject = subjects.includes(data.subject) ? data.subject : 'Mathematics';
   const [customSubject, setCustomSubject] = useState(subject);
@@ -57,6 +59,7 @@ export default function ExamsScreen() {
   const [session, setSession] = useState<ExamSession | null>(null);
   const [secondsLeft, setSecondsLeft] = useState(0);
   const [examResult, setExamResult] = useState<ExamResult | null>(null);
+  const [openCommandTerm, setOpenCommandTerm] = useState<string | null>(null);
   const completionRef = useRef<(() => void) | null>(null);
   const mcqSource = useMemo(() => questionsForSubject(subject), [subject]);
   const currentMcq = session?.mcqQuestions[session.questionIndex];
@@ -302,6 +305,25 @@ export default function ExamsScreen() {
   return (
     <Screen>
        <PageTitle eyebrow={`Grade ${data.grade} · Exam prep`} title="Exam simulator" subtitle="Build confidence with untimed practice or unlock the full timer with PRO." />
+      <Card style={{ gap: 12, backgroundColor: colors.surfaceRaised }}>
+        <View style={[uiStyles.row, uiStyles.gap12]}>
+          <View style={{ width: 42, height: 42, borderRadius: 15, backgroundColor: colors.primarySoft, alignItems: 'center', justifyContent: 'center' }}>
+            <Feather name="layers" size={19} color={colors.primary} />
+          </View>
+          <View style={{ flex: 1, gap: 3 }}>
+            <Text style={{ color: colors.foreground, fontFamily: 'Inter_700Bold', fontSize: 15 }}>Exam tools</Text>
+            <Text style={{ color: colors.mutedForeground, fontFamily: 'Inter_400Regular', fontSize: 12 }}>Scan your working or practise a spoken answer with the examiner preview.</Text>
+          </View>
+        </View>
+        <View style={[uiStyles.row, uiStyles.gap8]}>
+          <View style={{ flex: 1 }}>
+            <ActionButton title="Scan paper" icon="camera" variant="secondary" onPress={() => router.push('/scan')} testID="open-paper-scan" />
+          </View>
+          <View style={{ flex: 1 }}>
+            <ActionButton title="Ghost Mode" icon="mic" onPress={() => router.push('/ghost')} testID="open-ghost-mode" />
+          </View>
+        </View>
+      </Card>
       {examResult ? (
         <Card style={{ backgroundColor: colors.emeraldSoft, borderColor: colors.emeraldSoft }}>
           <View style={[uiStyles.row, uiStyles.gap12]}>
@@ -347,6 +369,61 @@ export default function ExamsScreen() {
          <ActionButton title={isPro ? 'Start Paper 4' : 'Unlock with PRO'} icon={isPro ? 'play' : 'lock'} variant="secondary" onPress={() => startExam('paper4')} testID="start-paper-4" />
         <Text style={{ color: colors.mutedForeground, fontFamily: 'Inter_400Regular', fontSize: 11, lineHeight: 16 }}>Sample prompts and marking guides are for practice only, not official Cambridge papers.</Text>
       </Card>
+
+      <View style={{ gap: 11 }}>
+        <SectionHeading title="Command term radar" action={isPro ? 'Interactive' : 'Basic definitions'} />
+        <Text style={{ color: colors.mutedForeground, fontFamily: 'Inter_400Regular', fontSize: 12, lineHeight: 18 }}>
+          Use the command term to decide what a complete answer needs. PRO members can open the contextual rubric card.
+        </Text>
+        <View style={{ gap: 8 }}>
+          {[
+            { term: 'State', definition: 'Give a concise fact or answer.', rubric: 'Do not add a long explanation unless the question asks for one.' },
+            { term: 'Describe', definition: 'Give a detailed account of what happens.', rubric: 'Include the key features in a logical order; avoid unsupported reasons.' },
+            { term: 'Explain', definition: 'Give reasons or show how something happens.', rubric: 'Link cause and effect with because, so, or therefore.' },
+            { term: 'Evaluate', definition: 'Make a supported judgement.', rubric: 'Balance evidence, explain why it matters, and reach a clear conclusion.' },
+          ].map((item) => {
+            const expanded = openCommandTerm === item.term && isPro;
+            return (
+              <Pressable
+                key={item.term}
+                accessibilityRole="button"
+                testID={`command-term-${item.term.toLowerCase()}`}
+                onPress={() => {
+                  if (!isPro) {
+                    showPaywall('command-term');
+                  } else {
+                    setOpenCommandTerm(expanded ? null : item.term);
+                  }
+                }}
+                style={({ pressed }) => ({
+                  padding: 13,
+                  borderRadius: 15,
+                  borderWidth: 1,
+                  borderColor: expanded ? colors.primary : colors.border,
+                  backgroundColor: expanded ? colors.primarySoft : colors.card,
+                  opacity: pressed ? 0.76 : 1,
+                  gap: 7,
+                })}
+              >
+                <View style={[uiStyles.between, { gap: 10 }]}>
+                  <View style={[uiStyles.row, uiStyles.gap8]}>
+                    <Tag tone="warning">{item.term}</Tag>
+                    {!isPro ? <Feather name="lock" size={13} color={colors.mutedForeground} /> : null}
+                  </View>
+                  <Feather name={expanded ? 'chevron-up' : 'chevron-down'} size={16} color={colors.mutedForeground} />
+                </View>
+                <Text style={{ color: colors.foreground, fontFamily: 'Inter_500Medium', fontSize: 12, lineHeight: 17 }}>{item.definition}</Text>
+                {expanded ? (
+                  <View style={{ padding: 10, borderRadius: 12, backgroundColor: colors.card, gap: 3 }}>
+                    <Text style={{ color: colors.primary, fontFamily: 'Inter_700Bold', fontSize: 10, letterSpacing: 0.5 }}>RUBRIC CARD</Text>
+                    <Text style={{ color: colors.foreground, fontFamily: 'Inter_400Regular', fontSize: 12, lineHeight: 18 }}>{item.rubric}</Text>
+                  </View>
+                ) : null}
+              </Pressable>
+            );
+          })}
+        </View>
+      </View>
 
       <View style={{ gap: 12 }}>
         <SectionHeading title="Build a custom set" />

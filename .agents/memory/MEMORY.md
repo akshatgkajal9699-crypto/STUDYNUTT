@@ -1,1 +1,2 @@
 - [Expo package maturity](expo-package-maturity.md) — the workspace package firewall can reject newest SDK releases; prefer the latest mature compatible version.
+- [Native tabs on web](native-tabs-web.md) — restrict the liquid-glass NativeTabs branch to iOS; the web preview can render blank otherwise.
