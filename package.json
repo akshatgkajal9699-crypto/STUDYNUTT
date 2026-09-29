@@ -10,8 +10,12 @@
   },
   "private": true,
   "dependencies": {
+    "@expo/metro-runtime": "^57.0.16",
     "@replit/connectors-sdk": "^0.4.3",
-    "@replit/revenuecat-sdk": "5.0.0"
+    "@replit/revenuecat-sdk": "5.0.0",
+    "expo": "^57.0.26",
+    "react-dom": "^19.3.0",
+    "react-native-web": "^0.21.3"
   },
   "devDependencies": {
     "prettier": "^3.9.6",
