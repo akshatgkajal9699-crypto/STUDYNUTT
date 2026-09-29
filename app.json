@@ -1,0 +1,9 @@
+{
+  "expo": {
+    "platforms": [
+      "web",
+      "ios",
+      "android"
+    ]
+  }
+}
