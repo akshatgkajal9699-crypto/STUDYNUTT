@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '@clerk/expo';
 import { Feather } from '@expo/vector-icons';
 import { fetch as expoFetch } from 'expo/fetch';
@@ -26,6 +27,38 @@ const STARTER_MESSAGE: ChatMessage = {
   role: 'tutor',
   text: 'Hi, I’m NutAI. Ask me about a topic, a homework problem, or an exam question, and I’ll work through it with you.',
 };
+
+const MAX_SAVED_MESSAGES = 100;
+
+function isChatMessage(value: unknown): value is ChatMessage {
+  if (typeof value !== 'object' || value === null) return false;
+  if (!('id' in value) || !('role' in value) || !('text' in value)) return false;
+  return (
+    typeof value.id === 'string' &&
+    (value.role === 'student' || value.role === 'tutor') &&
+    typeof value.text === 'string'
+  );
+}
+
+function readSavedMessages(value: string | null): ChatMessage[] {
+  if (!value) return [];
+  try {
+    const parsed: unknown = JSON.parse(value);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(isChatMessage).slice(-MAX_SAVED_MESSAGES);
+  } catch {
+    return [];
+  }
+}
+
+function persistMessages(storageKey: string, messages: ChatMessage[]) {
+  return AsyncStorage.setItem(
+    storageKey,
+    JSON.stringify(messages.slice(-MAX_SAVED_MESSAGES)),
+  ).catch((error: unknown) => {
+    console.warn('Could not save NutAI chat history.', error);
+  });
+}
 
 let messageCounter = 0;
 function createMessageId() {
@@ -126,13 +159,41 @@ export default function TutorScreen() {
   const insets = useSafeAreaInsets();
   const { data } = useStudy();
   const router = useRouter();
-  const { getToken, isSignedIn } = useAuth();
+  const { getToken, isSignedIn, userId } = useAuth();
+  const historyStorageKey = `@studynut/nutai-chat-v1:${encodeURIComponent(userId ?? 'guest')}`;
   const [messages, setMessages] = useState<ChatMessage[]>([STARTER_MESSAGE]);
+  const [loadedHistoryKey, setLoadedHistoryKey] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [showTyping, setShowTyping] = useState(false);
   const sendingRef = useRef(false);
   const abortControllerRef = useRef<AbortController | null>(null);
+  const historyReady = loadedHistoryKey === historyStorageKey;
+
+  useEffect(() => {
+    let active = true;
+    AsyncStorage.getItem(historyStorageKey)
+      .then((stored) => {
+        if (!active) return;
+        const savedMessages = readSavedMessages(stored);
+        setMessages(savedMessages.length > 0 ? savedMessages : [STARTER_MESSAGE]);
+      })
+      .catch((error: unknown) => {
+        console.warn('Could not restore NutAI chat history.', error);
+        if (active) setMessages([STARTER_MESSAGE]);
+      })
+      .finally(() => {
+        if (active) setLoadedHistoryKey(historyStorageKey);
+      });
+    return () => {
+      active = false;
+    };
+  }, [historyStorageKey]);
+
+  useEffect(() => {
+    if (!historyReady || isSending) return;
+    void persistMessages(historyStorageKey, messages);
+  }, [historyReady, historyStorageKey, isSending, messages]);
 
   useEffect(
     () => () => {
@@ -143,7 +204,7 @@ export default function TutorScreen() {
 
   async function sendMessage(text = draft) {
     const prompt = text.trim();
-    if (!prompt || sendingRef.current) return;
+    if (!prompt || !historyReady || sendingRef.current) return;
     sendingRef.current = true;
     const priorMessages: NutAiRequestMessage[] = messages
       .filter((message) => message.id !== 'welcome' && message.text.trim().length > 0)
@@ -157,11 +218,13 @@ export default function TutorScreen() {
       role: 'student',
       text: prompt,
     };
+    const messagesWithPrompt = [...messages, studentMessage].slice(-MAX_SAVED_MESSAGES);
     const tutorMessageId = createMessageId();
     let fullResponse = '';
     let tutorMessageAdded = false;
 
-    setMessages((current) => [...current, studentMessage]);
+    setMessages(messagesWithPrompt);
+    void persistMessages(historyStorageKey, messagesWithPrompt);
     setDraft('');
     setIsSending(true);
     setShowTyping(true);
@@ -241,7 +304,7 @@ export default function TutorScreen() {
     }
   }
 
-  const canSend = draft.trim().length > 0 && !isSending;
+  const canSend = draft.trim().length > 0 && !isSending && historyReady;
 
   return (
     <Screen
@@ -261,7 +324,7 @@ export default function TutorScreen() {
       <Card style={{ padding: 12, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
         <Feather name="info" size={16} color={colors.primary} />
         <Text style={{ flex: 1, color: colors.mutedForeground, fontFamily: 'Inter_400Regular', fontSize: 11, lineHeight: 16 }}>
-          NutAI uses your grade, subject, and recent chat to tailor each answer.
+          NutAI uses your grade, subject, and recent chat to tailor each answer. Your chat history is saved on this device.
         </Text>
       </Card>
       <View style={[uiStyles.row, uiStyles.gap8]}>
@@ -316,7 +379,7 @@ export default function TutorScreen() {
             key={suggestion}
             accessibilityRole="button"
             testID={`tutor-suggestion-${suggestion.toLowerCase().replaceAll(/[^a-z0-9]+/g, '-')}`}
-            disabled={isSending}
+            disabled={isSending || !historyReady}
             onPress={() => sendMessage(suggestion)}
             style={({ pressed }) => ({
               borderRadius: 99,
@@ -337,7 +400,7 @@ export default function TutorScreen() {
       >
         <FlatList
           inverted
-          data={[...messages].reverse()}
+          data={historyReady ? [...messages].reverse() : []}
           keyExtractor={(message) => message.id}
           keyboardDismissMode="interactive"
           keyboardShouldPersistTaps="handled"
@@ -410,12 +473,12 @@ export default function TutorScreen() {
             value={draft}
             onChangeText={setDraft}
             onSubmitEditing={() => sendMessage()}
-            placeholder="Ask NutAI about a topic or question…"
+            placeholder={historyReady ? 'Ask NutAI about a topic or question…' : 'Loading saved chat…'}
             placeholderTextColor={colors.mutedForeground}
             returnKeyType="send"
             multiline
             maxLength={500}
-            editable={!isSending}
+            editable={historyReady && !isSending}
             style={{
               flex: 1,
               maxHeight: 110,
