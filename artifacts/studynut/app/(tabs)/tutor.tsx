@@ -1,5 +1,7 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
+import { useAuth } from '@clerk/expo';
 import { Feather } from '@expo/vector-icons';
+import { fetch as expoFetch } from 'expo/fetch';
 import { useRouter } from 'expo-router';
 import { FlatList, Keyboard, Platform, Pressable, Text, TextInput, View } from 'react-native';
 import { KeyboardAvoidingView } from 'react-native-keyboard-controller';
@@ -14,11 +16,22 @@ type ChatMessage = {
   text: string;
 };
 
+type NutAiRequestMessage = {
+  role: 'student' | 'tutor';
+  content: string;
+};
+
 const STARTER_MESSAGE: ChatMessage = {
   id: 'welcome',
   role: 'tutor',
-  text: 'Hi! I can help you think through a study question. This preview uses built-in study guides; live NutAI answers and image solving are not connected yet.',
+  text: 'Hi, I’m NutAI. Ask me about a topic, a homework problem, or an exam question, and I’ll work through it with you.',
 };
+
+let messageCounter = 0;
+function createMessageId() {
+  messageCounter += 1;
+  return `nutai-${Date.now()}-${messageCounter}`;
+}
 
 const SUGGESTIONS = [
   'Explain photosynthesis',
@@ -26,32 +39,86 @@ const SUGGESTIONS = [
   'What does “evaluate” mean?',
 ];
 
-function makeStudyGuideReply(prompt: string, grade: number) {
-  const text = prompt.toLowerCase();
-  if (text.includes('photosynth')) {
-    return 'Think of photosynthesis as a way to store light energy in glucose.\n\n1. Chlorophyll in the leaf absorbs light.\n2. The plant takes in carbon dioxide and water.\n3. Light energy helps rearrange those atoms into glucose and oxygen.\n\nWord equation: carbon dioxide + water → glucose + oxygen. A useful check: light is the energy source, not a raw material.';
+async function streamNutAiResponse(
+  requestBody: {
+    grade: number;
+    subject: string;
+    messages: NutAiRequestMessage[];
+  },
+  token: string,
+  signal: AbortSignal,
+  onChunk: (content: string) => void,
+) {
+  const domain = process.env.EXPO_PUBLIC_DOMAIN;
+  if (!domain) {
+    throw new Error('NutAI is not configured for this build. Please try again later.');
   }
-  if (text.includes('wave')) {
-    return 'For wave speed questions, start with v = fλ.\n\n• v is speed in metres per second (m/s)\n• f is frequency in hertz (Hz)\n• λ is wavelength in metres (m)\n\nFor example, 50 Hz × 0.8 m = 40 m/s. Before calculating, check that your wavelength is in metres.';
+
+  const response = await expoFetch(`https://${domain}/api/nutai/chat`, {
+    method: 'POST',
+    signal,
+    headers: {
+      Accept: 'text/event-stream',
+      Authorization: `Bearer ${token}`,
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify(requestBody),
+  });
+
+  if (!response.ok) {
+    const responseText = await response.text();
+    let message = 'NutAI couldn’t answer right now. Please try again.';
+    try {
+      const body = JSON.parse(responseText) as { error?: unknown };
+      if (typeof body.error === 'string' && body.error.length > 0) {
+        message = body.error;
+      }
+    } catch {
+      if (response.status === 401) {
+        message = 'Please sign in to use NutAI.';
+      }
+    }
+    throw new Error(message);
   }
-  if (text.includes('fraction')) {
-    return 'To add fractions, first give them the same denominator. For example:\n\n¾ + ⅛ = 6/8 + 1/8 = 7/8.\n\nThe denominator tells you the size of the pieces; only add the numerators once those pieces are the same size.';
+
+  const reader = response.body?.getReader();
+  if (!reader) {
+    throw new Error('NutAI could not open a response stream. Please try again.');
   }
-  if (text.includes('evaluate') || text.includes('command term')) {
-    return 'In an exam, “evaluate” means make a supported judgement. A strong answer usually:\n\n1. Gives evidence for more than one side.\n2. Explains why each point matters.\n3. Reaches a clear conclusion that follows from the evidence.\n\nTry not to stop at describing: the judgement is the important final step.';
+
+  const decoder = new TextDecoder();
+  let buffer = '';
+  let completed = false;
+
+  const readLine = (line: string) => {
+    const normalized = line.replace(/\r$/, '');
+    if (!normalized.startsWith('data: ')) return;
+    const payload = JSON.parse(normalized.slice(6)) as {
+      content?: unknown;
+      done?: unknown;
+      error?: unknown;
+    };
+    if (typeof payload.error === 'string') {
+      throw new Error(payload.error);
+    }
+    if (typeof payload.content === 'string' && payload.content.length > 0) {
+      onChunk(payload.content);
+    }
+    if (payload.done === true) completed = true;
+  };
+
+  while (true) {
+    const { done, value } = await reader.read();
+    buffer += decoder.decode(value, { stream: !done });
+    const lines = buffer.split('\n');
+    buffer = lines.pop() ?? '';
+    for (const line of lines) readLine(line);
+    if (done) break;
   }
-  const equation = text.match(/(-?\d*)\s*x\s*([+-])\s*(\d+)\s*=\s*(-?\d+)/);
-  if (equation) {
-    const coefficient = Number(equation[1] || 1);
-    const adjustment = Number(equation[3]) * (equation[2] === '-' ? -1 : 1);
-    const total = Number(equation[4]);
-    const x = (total - adjustment) / coefficient;
-    return `Let’s keep both sides balanced.\n\n${prompt.trim()}\n1. ${adjustment >= 0 ? `Subtract ${adjustment}` : `Add ${Math.abs(adjustment)}`} on both sides.\n2. ${coefficient}x = ${total - adjustment}.\n3. Divide both sides by ${coefficient}.\n\nSo x = ${x}. Check it by substituting ${x} back into the original equation.`;
+  if (buffer.trim()) readLine(buffer);
+  if (!completed) {
+    throw new Error('NutAI’s connection ended early. Please try again.');
   }
-  if (text.includes('equation') || text.includes('algebra') || text.includes('solve')) {
-    return 'A reliable algebra method is to undo operations in reverse order while keeping both sides balanced.\n\nTry this small example: 2x + 5 = 13. Subtract 5 from both sides (2x = 8), then divide both sides by 2 (x = 4). Check your result in the original equation.\n\nShare the exact equation and I can help you set up the steps.';
-  }
-  return `Let’s break it down at Grade ${grade} level.\n\n1. Identify what the question is asking you to find or explain.\n2. Write down the relevant fact, rule, or equation.\n3. Work through one step at a time and check that your units or evidence fit.\n\nTell me the subject and the exact question, and I’ll help you plan the first step.`;
 }
 
 export default function TutorScreen() {
@@ -59,23 +126,122 @@ export default function TutorScreen() {
   const insets = useSafeAreaInsets();
   const { data } = useStudy();
   const router = useRouter();
+  const { getToken, isSignedIn } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([STARTER_MESSAGE]);
   const [draft, setDraft] = useState('');
-  function sendMessage(text = draft) {
+  const [isSending, setIsSending] = useState(false);
+  const [showTyping, setShowTyping] = useState(false);
+  const sendingRef = useRef(false);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  useEffect(
+    () => () => {
+      abortControllerRef.current?.abort();
+    },
+    [],
+  );
+
+  async function sendMessage(text = draft) {
     const prompt = text.trim();
-    if (!prompt) return;
-    setMessages((current) => [
-      ...current,
-      { id: `${Date.now()}-student`, role: 'student', text: prompt },
-      {
-        id: `${Date.now()}-guide`,
-        role: 'tutor',
-        text: makeStudyGuideReply(prompt, data.grade),
-      },
-    ]);
+    if (!prompt || sendingRef.current) return;
+    sendingRef.current = true;
+    const priorMessages: NutAiRequestMessage[] = messages
+      .filter((message) => message.id !== 'welcome' && message.text.trim().length > 0)
+      .slice(-10)
+      .map((message) => ({
+        role: message.role,
+        content: message.text,
+      }));
+    const studentMessage: ChatMessage = {
+      id: createMessageId(),
+      role: 'student',
+      text: prompt,
+    };
+    const tutorMessageId = createMessageId();
+    let fullResponse = '';
+    let tutorMessageAdded = false;
+
+    setMessages((current) => [...current, studentMessage]);
     setDraft('');
+    setIsSending(true);
+    setShowTyping(true);
     Keyboard.dismiss();
+
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+    try {
+      if (!isSignedIn) {
+        throw new Error('Please sign in to use NutAI.');
+      }
+      const token = await getToken();
+      if (!token) {
+        throw new Error('Please sign in to use NutAI.');
+      }
+
+      await streamNutAiResponse(
+        {
+          grade: data.grade,
+          subject: data.subject,
+          messages: [
+            ...priorMessages,
+            { role: 'student', content: prompt },
+          ],
+        },
+        token,
+        controller.signal,
+        (content) => {
+          fullResponse += content;
+          setShowTyping(false);
+          if (!tutorMessageAdded) {
+            tutorMessageAdded = true;
+            setMessages((current) => [
+              ...current,
+              { id: tutorMessageId, role: 'tutor', text: fullResponse },
+            ]);
+            return;
+          }
+          setMessages((current) =>
+            current.map((message) =>
+              message.id === tutorMessageId
+                ? { ...message, text: fullResponse }
+                : message,
+            ),
+          );
+        },
+      );
+      if (!tutorMessageAdded) {
+        throw new Error('NutAI returned an empty answer. Please try again.');
+      }
+    } catch (error) {
+      if (controller.signal.aborted) return;
+      const message =
+        error instanceof Error
+          ? error.message
+          : 'NutAI couldn’t answer right now. Please try again.';
+      setMessages((current) => {
+        if (!tutorMessageAdded) {
+          return [
+            ...current,
+            { id: tutorMessageId, role: 'tutor', text: message },
+          ];
+        }
+        return current.map((item) =>
+          item.id === tutorMessageId
+            ? { ...item, text: `${item.text}\n\n${message}` }
+            : item,
+        );
+      });
+    } finally {
+      sendingRef.current = false;
+      setIsSending(false);
+      setShowTyping(false);
+      if (abortControllerRef.current === controller) {
+        abortControllerRef.current = null;
+      }
+    }
   }
+
+  const canSend = draft.trim().length > 0 && !isSending;
 
   return (
     <Screen
@@ -87,15 +253,15 @@ export default function TutorScreen() {
       }}
     >
       <PageTitle
-        eyebrow="NUTAI · STUDY GUIDE"
+        eyebrow="NUTAI · AI STUDY TUTOR"
         title="Ask a question"
-        subtitle="A calm place to work through a tricky idea."
-        right={<Tag tone="warning">Preview</Tag>}
+        subtitle="A calm place to work through a tricky idea, one step at a time."
+        right={<Tag tone="green">LIVE AI</Tag>}
       />
       <Card style={{ padding: 12, flexDirection: 'row', alignItems: 'center', gap: 10 }}>
         <Feather name="info" size={16} color={colors.primary} />
         <Text style={{ flex: 1, color: colors.mutedForeground, fontFamily: 'Inter_400Regular', fontSize: 11, lineHeight: 16 }}>
-           Built-in guide mode. Use the exam tools for a paper-scan preview or a spoken Ghost Mode session.
+          NutAI uses your grade, subject, and recent chat to tailor each answer.
         </Text>
       </Card>
       <View style={[uiStyles.row, uiStyles.gap8]}>
@@ -150,13 +316,14 @@ export default function TutorScreen() {
             key={suggestion}
             accessibilityRole="button"
             testID={`tutor-suggestion-${suggestion.toLowerCase().replaceAll(/[^a-z0-9]+/g, '-')}`}
+            disabled={isSending}
             onPress={() => sendMessage(suggestion)}
             style={({ pressed }) => ({
               borderRadius: 99,
               paddingHorizontal: 11,
               paddingVertical: 8,
               backgroundColor: colors.primarySoft,
-              opacity: pressed ? 0.7 : 1,
+              opacity: isSending ? 0.5 : pressed ? 0.7 : 1,
             })}
           >
             <Text style={{ color: colors.primary, fontFamily: 'Inter_600SemiBold', fontSize: 11 }}>{suggestion}</Text>
@@ -175,6 +342,25 @@ export default function TutorScreen() {
           keyboardDismissMode="interactive"
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
+          ListHeaderComponent={
+            showTyping ? (
+              <View
+                style={{
+                  alignSelf: 'flex-start',
+                  paddingHorizontal: 14,
+                  paddingVertical: 10,
+                  borderRadius: 14,
+                  backgroundColor: colors.card,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                }}
+              >
+                <Text style={{ color: colors.mutedForeground, fontFamily: 'Inter_400Regular', fontSize: 12 }}>
+                  NutAI is thinking…
+                </Text>
+              </View>
+            ) : null
+          }
           contentContainerStyle={{ gap: 10, paddingTop: 12, paddingBottom: 10 }}
           renderItem={({ item }) => {
             const isStudent = item.role === 'student';
@@ -193,8 +379,8 @@ export default function TutorScreen() {
                 }}>
                   {!isStudent ? (
                     <View style={[uiStyles.row, uiStyles.gap8, { marginBottom: 6 }]}>
-                      <Feather name="book-open" size={13} color={colors.emerald} />
-                      <Text style={{ color: colors.emerald, fontFamily: 'Inter_700Bold', fontSize: 10, letterSpacing: 0.6 }}>STUDY GUIDE</Text>
+                      <Feather name="zap" size={13} color={colors.emerald} />
+                      <Text style={{ color: colors.emerald, fontFamily: 'Inter_700Bold', fontSize: 10, letterSpacing: 0.6 }}>NUTAI</Text>
                     </View>
                   ) : null}
                   <Text style={{
@@ -219,16 +405,17 @@ export default function TutorScreen() {
           backgroundColor: colors.card,
         }}>
           <TextInput
-            accessibilityLabel="Ask the study guide a question"
+            accessibilityLabel="Ask NutAI a question"
             testID="tutor-input"
             value={draft}
             onChangeText={setDraft}
             onSubmitEditing={() => sendMessage()}
-            placeholder="Ask about a topic or question…"
+            placeholder="Ask NutAI about a topic or question…"
             placeholderTextColor={colors.mutedForeground}
             returnKeyType="send"
             multiline
             maxLength={500}
+            editable={!isSending}
             style={{
               flex: 1,
               maxHeight: 110,
@@ -243,21 +430,21 @@ export default function TutorScreen() {
           />
           <Pressable
             accessibilityRole="button"
-            accessibilityLabel="Send question"
+            accessibilityLabel="Send question to NutAI"
             testID="tutor-send"
-            disabled={!draft.trim()}
+            disabled={!canSend}
             onPress={() => sendMessage()}
             style={({ pressed }) => ({
               width: 40,
               height: 40,
               borderRadius: 14,
-              backgroundColor: draft.trim() ? colors.primary : colors.muted,
+              backgroundColor: canSend ? colors.primary : colors.muted,
               alignItems: 'center',
               justifyContent: 'center',
-              opacity: pressed ? 0.8 : 1,
+              opacity: !canSend ? 0.6 : pressed ? 0.8 : 1,
             })}
           >
-            <Feather name="arrow-up" size={19} color={draft.trim() ? colors.primaryForeground : colors.mutedForeground} />
+            <Feather name="arrow-up" size={19} color={canSend ? colors.primaryForeground : colors.mutedForeground} />
           </Pressable>
         </View>
       </KeyboardAvoidingView>
