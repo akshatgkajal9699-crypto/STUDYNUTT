@@ -1,20 +1,24 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Link, useRouter } from 'expo-router';
 import { useAuth, useSignUp } from '@clerk/expo';
-import { Platform, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Platform, Text, TextInput, View } from 'react-native';
 import { ActionButton, BodyText } from '@/components/studynut-ui';
 import { AuthFrame, FieldLabel } from '@/components/auth-ui';
 import { useColors } from '@/hooks/useColors';
 
 export default function SignUpScreen() {
   const { signUp, errors, fetchStatus } = useSignUp();
-  const { isSignedIn } = useAuth();
+  const { isLoaded, isSignedIn } = useAuth();
   const router = useRouter();
   const colors = useColors();
   const [emailAddress, setEmailAddress] = useState('');
   const [password, setPassword] = useState('');
   const [code, setCode] = useState('');
   const [message, setMessage] = useState('');
+
+  useEffect(() => {
+    if (isLoaded && isSignedIn) router.replace('/');
+  }, [isLoaded, isSignedIn, router]);
 
   const finishSignUp = async () => {
     await signUp.finalize({
@@ -54,9 +58,19 @@ export default function SignUpScreen() {
     if (signUp.status === 'complete') await finishSignUp();
   };
 
+  if (!isLoaded) {
+    return (
+      <AuthFrame title="Checking your account" subtitle="Restoring your saved sign-in." footer={null}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </AuthFrame>
+    );
+  }
   if (isSignedIn) {
-    router.replace('/');
-    return null;
+    return (
+      <AuthFrame title="You're signed in" subtitle="Opening your study space." footer={null}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </AuthFrame>
+    );
   }
 
   const errorFor = (key: string) =>

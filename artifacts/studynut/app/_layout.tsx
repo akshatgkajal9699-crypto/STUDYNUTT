@@ -59,8 +59,9 @@ function AppProviders({ storageScope = 'guest' }: { storageScope?: string }) {
 }
 
 function ClerkApp() {
-  const { isSignedIn, userId } = useAuth();
-  const storageScope = isSignedIn && userId ? `user:${userId}` : 'guest';
+  const { isLoaded, isSignedIn, userId } = useAuth();
+  const storageScope =
+    isLoaded && isSignedIn && userId ? `user:${userId}` : 'guest';
   return <AppProviders storageScope={storageScope} />;
 }
 

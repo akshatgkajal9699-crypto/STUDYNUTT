@@ -159,7 +159,7 @@ export default function TutorScreen() {
   const insets = useSafeAreaInsets();
   const { data } = useStudy();
   const router = useRouter();
-  const { getToken, isSignedIn, userId } = useAuth();
+  const { getToken, isLoaded, isSignedIn, userId } = useAuth();
   const historyStorageKey = `@studynut/nutai-chat-v1:${encodeURIComponent(userId ?? 'guest')}`;
   const [messages, setMessages] = useState<ChatMessage[]>([STARTER_MESSAGE]);
   const [loadedHistoryKey, setLoadedHistoryKey] = useState<string | null>(null);
@@ -204,7 +204,7 @@ export default function TutorScreen() {
 
   async function sendMessage(text = draft) {
     const prompt = text.trim();
-    if (!prompt || !historyReady || sendingRef.current) return;
+    if (!prompt || !historyReady || !isLoaded || sendingRef.current) return;
     sendingRef.current = true;
     const priorMessages: NutAiRequestMessage[] = messages
       .filter((message) => message.id !== 'welcome' && message.text.trim().length > 0)
@@ -304,7 +304,8 @@ export default function TutorScreen() {
     }
   }
 
-  const canSend = draft.trim().length > 0 && !isSending && historyReady;
+  const canSend =
+    draft.trim().length > 0 && !isSending && historyReady && isLoaded;
 
   return (
     <Screen

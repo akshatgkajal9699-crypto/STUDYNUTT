@@ -4,6 +4,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { Href, Link, useRouter } from 'expo-router';
 import { useAuth, useSignIn, useSSO } from '@clerk/expo';
 import {
+  ActivityIndicator,
   Platform,
   Pressable,
   Text,
@@ -19,7 +20,7 @@ WebBrowser.maybeCompleteAuthSession();
 export default function SignInScreen() {
   const { signIn, errors, fetchStatus } = useSignIn();
   const { startSSOFlow } = useSSO();
-  const { isSignedIn } = useAuth();
+  const { isLoaded, isSignedIn } = useAuth();
   const router = useRouter();
   const colors = useColors();
   const [emailAddress, setEmailAddress] = useState('');
@@ -35,6 +36,10 @@ export default function SignInScreen() {
       void WebBrowser.coolDownAsync();
     };
   }, []);
+
+  useEffect(() => {
+    if (isLoaded && isSignedIn) router.replace('/');
+  }, [isLoaded, isSignedIn, router]);
 
   const goHome = useCallback(async () => {
     await signIn.finalize({
@@ -106,9 +111,19 @@ export default function SignInScreen() {
     }
   };
 
+  if (!isLoaded) {
+    return (
+      <AuthFrame title="Checking your account" subtitle="Restoring your saved sign-in." footer={null}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </AuthFrame>
+    );
+  }
   if (isSignedIn) {
-    router.replace('/');
-    return null;
+    return (
+      <AuthFrame title="You're signed in" subtitle="Opening your study space." footer={null}>
+        <ActivityIndicator size="large" color={colors.primary} />
+      </AuthFrame>
+    );
   }
 
   const errorFor = (key: string) =>
