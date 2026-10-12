@@ -83,11 +83,17 @@ async function streamNutAiResponse(
   onChunk: (content: string) => void,
 ) {
   const domain = process.env.EXPO_PUBLIC_DOMAIN;
-  if (!domain) {
+  const apiUrl =
+    Platform.OS === 'web'
+      ? '/api/nutai/chat'
+      : domain
+        ? `https://${domain}/api/nutai/chat`
+        : null;
+  if (!apiUrl) {
     throw new Error('NutAI is not configured for this build. Please try again later.');
   }
 
-  const response = await expoFetch(`https://${domain}/api/nutai/chat`, {
+  const response = await expoFetch(apiUrl, {
     method: 'POST',
     signal,
     headers: {

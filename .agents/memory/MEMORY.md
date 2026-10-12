@@ -1,3 +1,4 @@
 - [Expo package maturity](expo-package-maturity.md) — the workspace package firewall can reject newest SDK releases; prefer the latest mature compatible version.
 - [Native tabs on web](native-tabs-web.md) — restrict the liquid-glass NativeTabs branch to iOS; the web preview can render blank otherwise.
 - [Expo static-export assets](expo-static-export-assets.md) — asset metadata matchers must handle quoted keys and verify copied assets after successful bundling.
+- [NutAI API routing](nutai-api-routing.md) — use the same-origin `/api` path for web; native clients need the configured API host.
