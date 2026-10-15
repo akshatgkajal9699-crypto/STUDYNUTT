@@ -9,8 +9,8 @@ For this app, a browser request to `/api/...` on the Expo web origin reaches the
 
 **How to apply:** When adding web API calls in the Expo app, prefer `/api/...` and verify the path reaches the API server. Keep absolute API-host URLs for native clients.
 
-The API server also requires `OPENAI_API_KEY` in its runtime environment. A saved secret may not be active in an already-running process; after adding or confirming it, restart the API Server workflow and confirm its safe `openAiConfigured` status is true.
+The API server uses a configurable OpenAI-compatible Chat Completions provider. It requires `NUTAI_PROVIDER_BASE_URL`, `NUTAI_PROVIDER_MODEL`, and the secret `NUTAI_PROVIDER_API_KEY`. Never fall back to `OPENAI_API_KEY` when targeting a custom host.
 
-**Why:** NutAI returned its configuration 503 while the secret existed in Replit, because the running API process did not receive it.
+**Why:** Sending an OpenAI key to a different provider host would expose credentials to an unintended recipient, and a saved secret may not be active in an already-running process.
 
-**How to apply:** Check the server-side boolean status only; never print or inspect the key. Re-enter it through the secure Secrets flow if unavailable, then restart the API service.
+**How to apply:** Collect the provider base URL and model as environment variables and the provider key through the secure Secrets flow. After configuration, restart the API Server workflow and confirm only the safe configuration booleans; never print or inspect the key.

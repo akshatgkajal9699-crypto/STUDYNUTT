@@ -5,19 +5,47 @@ import OpenAI from "openai";
 import { logger } from "../lib/logger";
 
 const router: IRouter = Router();
-const MODEL = process.env.OPENAI_MODEL || "gpt-5-mini";
+const PROVIDER_BASE_URL = process.env.NUTAI_PROVIDER_BASE_URL?.trim();
+const PROVIDER_API_KEY = process.env.NUTAI_PROVIDER_API_KEY;
+const MODEL = process.env.NUTAI_PROVIDER_MODEL?.trim();
 const MAX_MESSAGES = 12;
 const MAX_REQUESTS_PER_MINUTE = 12;
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const requestsByUser = new Map<string, number[]>();
 
+function isSecureProviderUrl(value: string | undefined): value is string {
+  if (!value) return false;
+  try {
+    const url = new URL(value);
+    return (
+      (url.protocol === "https:" ||
+        (url.protocol === "http:" &&
+          (url.hostname === "localhost" || url.hostname === "127.0.0.1"))) &&
+      !url.username &&
+      !url.password
+    );
+  } catch {
+    return false;
+  }
+}
+
+const providerConfigurationValid =
+  isSecureProviderUrl(PROVIDER_BASE_URL) &&
+  Boolean(PROVIDER_API_KEY?.trim()) &&
+  Boolean(MODEL);
+
 logger.info(
-  { openAiConfigured: Boolean(process.env.OPENAI_API_KEY) },
+  {
+    providerConfigured: providerConfigurationValid,
+    providerUrlConfigured: isSecureProviderUrl(PROVIDER_BASE_URL),
+    providerKeyConfigured: Boolean(PROVIDER_API_KEY?.trim()),
+    providerModelConfigured: Boolean(MODEL),
+  },
   "NutAI provider configuration",
 );
 
-const openai = process.env.OPENAI_API_KEY
-  ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
+const providerClient = providerConfigurationValid
+  ? new OpenAI({ apiKey: PROVIDER_API_KEY!, baseURL: PROVIDER_BASE_URL! })
   : null;
 
 function allowRequest(userId: string): boolean {
@@ -66,8 +94,11 @@ router.post("/nutai/chat", clerkMiddleware(), async (req, res) => {
       .json({ error: "NutAI is receiving questions quickly. Wait a minute and try again." });
     return;
   }
-  if (!openai) {
-    res.status(503).json({ error: "NutAI is not configured yet. Please try again later." });
+  if (!providerClient || !MODEL) {
+    res.status(503).json({
+      error:
+        "NutAI’s custom AI provider is not configured. Please try again later.",
+    });
     return;
   }
 
@@ -82,10 +113,9 @@ router.post("/nutai/chat", clerkMiddleware(), async (req, res) => {
   res.flushHeaders();
 
   try {
-    const stream = await openai.chat.completions.create(
+    const stream = await providerClient.chat.completions.create(
       {
         model: MODEL,
-        max_completion_tokens: 8192,
         stream: true,
         messages: [
           {
@@ -141,11 +171,11 @@ router.post("/nutai/chat", clerkMiddleware(), async (req, res) => {
     logger.error({ status, code }, "NutAI model request failed");
     const message =
       code === "insufficient_quota" || code === "credit_balance_exhausted"
-        ? "NutAI’s OpenAI account has no API credits. Add credits to the account behind this key, then try again."
+        ? "NutAI’s AI provider account has no API credits. Add credits to the account behind this provider key, then try again."
         : status === 429
           ? "NutAI is busy right now. Please wait a moment and try again."
           : status === 401
-            ? "NutAI’s OpenAI connection needs attention. Please ask the app owner to update its key."
+            ? "NutAI could not authenticate with its AI provider. Please ask the app owner to check the provider settings."
             : "NutAI couldn’t finish that response. Please try again.";
     if (res.headersSent) {
       sendEvent(res, { error: message });
