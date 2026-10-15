@@ -48,60 +48,6 @@ const providerClient = providerConfigurationValid
   ? new OpenAI({ apiKey: PROVIDER_API_KEY!, baseURL: PROVIDER_BASE_URL! })
   : null;
 
-if (providerClient && MODEL) {
-  void (async () => {
-    try {
-      const models = await providerClient.models.list();
-      const availableModelIds = models.data.map((model) => model.id);
-      logger.info(
-        {
-          requestedModelAvailable: availableModelIds.includes(MODEL),
-          availableChatModels: availableModelIds
-            .filter((id) => /chat|instruct|compound|llama|gpt-oss/i.test(id))
-            .slice(0, 20),
-        },
-        "NutAI provider model availability",
-      );
-
-      const stream = await providerClient.chat.completions.create({
-        model: MODEL,
-        max_tokens: 8,
-        stream: true,
-        messages: [{ role: "user", content: "Reply with OK." }],
-      });
-      let receivedContent = false;
-      for await (const chunk of stream) {
-        if (typeof chunk.choices[0]?.delta?.content === "string") {
-          receivedContent = true;
-        }
-      }
-      logger.info(
-        { providerStreamCheck: receivedContent ? "passed" : "no_content" },
-        "NutAI custom provider stream check",
-      );
-    } catch (error) {
-      const status =
-        typeof error === "object" &&
-        error !== null &&
-        "status" in error &&
-        typeof error.status === "number"
-          ? error.status
-          : undefined;
-      const code =
-        typeof error === "object" &&
-        error !== null &&
-        "code" in error &&
-        typeof error.code === "string"
-          ? error.code
-          : undefined;
-      logger.error(
-        { providerStreamCheck: "failed", status, code },
-        "NutAI custom provider stream check failed",
-      );
-    }
-  })();
-}
-
 function allowRequest(userId: string): boolean {
   const now = Date.now();
   const activeRequests = (requestsByUser.get(userId) ?? []).filter(
