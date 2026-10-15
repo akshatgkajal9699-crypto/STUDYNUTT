@@ -11,6 +11,11 @@ const MAX_REQUESTS_PER_MINUTE = 12;
 const RATE_LIMIT_WINDOW_MS = 60_000;
 const requestsByUser = new Map<string, number[]>();
 
+logger.info(
+  { openAiConfigured: Boolean(process.env.OPENAI_API_KEY) },
+  "NutAI provider configuration",
+);
+
 const openai = process.env.OPENAI_API_KEY
   ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
   : null;
