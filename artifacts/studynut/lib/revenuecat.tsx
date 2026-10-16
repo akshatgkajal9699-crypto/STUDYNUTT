@@ -19,9 +19,11 @@ import {
   Modal,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { Feather } from '@expo/vector-icons';
 import { useColors } from '@/hooks/useColors';
@@ -158,20 +160,72 @@ function reasonCopy(reason: PaywallReason | null) {
   }
 }
 
-function packageLabel(aPackage: PurchasesPackage) {
+type PlanKind = 'monthly' | 'six-month' | 'yearly';
+
+function packagePlanKind(aPackage: PurchasesPackage): PlanKind | null {
   const id = aPackage.identifier.toLowerCase();
-  if (id.includes('six') || id.includes('6month')) return '6 months';
-  if (id.includes('annual') || id.includes('year')) return 'Yearly';
-  if (id.includes('monthly') || id.includes('month')) return 'Monthly';
-  return aPackage.product.title;
+  const period = aPackage.product.subscriptionPeriod?.toUpperCase();
+  if (
+    aPackage.packageType === 'SIX_MONTH' ||
+    period === 'P6M' ||
+    id.includes('six_month') ||
+    id.includes('six-month') ||
+    id.includes('6month')
+  ) {
+    return 'six-month';
+  }
+  if (
+    aPackage.packageType === 'ANNUAL' ||
+    period === 'P1Y' ||
+    id.includes('annual') ||
+    id.includes('year')
+  ) {
+    return 'yearly';
+  }
+  if (
+    aPackage.packageType === 'MONTHLY' ||
+    period === 'P1M' ||
+    id.includes('monthly')
+  ) {
+    return 'monthly';
+  }
+  return null;
 }
 
-function packageDetail(aPackage: PurchasesPackage) {
+function planLabel(kind: PlanKind) {
+  if (kind === 'six-month') return '6 months';
+  if (kind === 'yearly') return 'Yearly';
+  return 'Monthly';
+}
+
+function planPeriod(kind: PlanKind) {
+  if (kind === 'six-month') return '6 months';
+  if (kind === 'yearly') return 'year';
+  return 'month';
+}
+
+function freeTrialLabel(aPackage: PurchasesPackage, kind: PlanKind) {
   const intro = aPackage.product.introPrice;
-  if (intro && intro.priceString !== aPackage.product.priceString) {
-    return `${intro.priceString} intro price · then ${aPackage.product.priceString}`;
+  if (!intro || intro.price !== 0 || kind === 'monthly') return null;
+  const unit = intro.periodUnit.toLowerCase();
+  if (unit === 'day' && intro.periodNumberOfUnits === 7) return '7-day free trial';
+  const count = intro.periodNumberOfUnits;
+  return `${count} ${unit}${count === 1 ? '' : 's'} free trial`;
+}
+
+function monthlySavingsLabel(
+  aPackage: PurchasesPackage,
+  kind: PlanKind,
+  monthlyPackage: PurchasesPackage | undefined,
+) {
+  if (kind === 'monthly' || !monthlyPackage || monthlyPackage.product.price <= 0) {
+    return null;
   }
-  return aPackage.product.priceString;
+  const months = kind === 'six-month' ? 6 : 12;
+  const discount = Math.round(
+    (1 - aPackage.product.price / months / monthlyPackage.product.price) * 100,
+  );
+  return discount > 0 ? `${discount}% less per month` : null;
 }
 
 export function SubscriptionProvider({
@@ -187,15 +241,15 @@ export function SubscriptionProvider({
   const [paywallReason, setPaywallReason] = useState<PaywallReason | null>(null);
 
   const usageKey = `${USAGE_KEY}:${appUserId ?? 'guest'}`;
-  const apiKey =
-    Platform.OS === 'web'
-      ? undefined
-      : Platform.OS === 'ios'
+  const useTestStore =
+    __DEV__ || process.env.EXPO_PUBLIC_REVENUECAT_TEST_MODE === 'true';
+  const apiKey = useTestStore
+    ? process.env.EXPO_PUBLIC_REVENUECAT_TEST_API_KEY
+    : Platform.OS === 'ios'
       ? process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY
       : Platform.OS === 'android'
         ? process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY
-        : process.env.EXPO_PUBLIC_REVENUECAT_IOS_API_KEY ??
-          process.env.EXPO_PUBLIC_REVENUECAT_ANDROID_API_KEY;
+        : undefined;
 
   const updateCustomerInfo = useCallback((info: CustomerInfo) => {
     setCustomerInfo(info);
@@ -414,6 +468,7 @@ export function useSubscription() {
 
 function SubscriptionPaywall() {
   const colors = useColors();
+  const { height } = useWindowDimensions();
   const {
     paywallReason,
     dismissPaywall,
@@ -424,80 +479,382 @@ function SubscriptionPaywall() {
     loading,
     error,
     isPro,
+    ready,
   } = useSubscription();
+  const [selectedPackageId, setSelectedPackageId] = useState<string | null>(null);
   const copy = reasonCopy(paywallReason);
-  const packages = offerings?.availablePackages ?? [];
+  const packages = (offerings?.availablePackages ?? [])
+    .map((aPackage) => ({ aPackage, kind: packagePlanKind(aPackage) }))
+    .filter(
+      (plan): plan is { aPackage: PurchasesPackage; kind: PlanKind } =>
+        plan.kind !== null,
+    )
+    .sort((left, right) => {
+      const order: Record<PlanKind, number> = {
+        yearly: 0,
+        'six-month': 1,
+        monthly: 2,
+      };
+      return order[left.kind] - order[right.kind];
+    });
+  const monthlyPackage = packages.find((plan) => plan.kind === 'monthly')?.aPackage;
+  const selectedPlan =
+    packages.find((plan) => plan.aPackage.identifier === selectedPackageId) ??
+    packages.find((plan) => plan.kind === 'yearly') ??
+    packages[0];
+  const trialLabel = selectedPlan
+    ? freeTrialLabel(selectedPlan.aPackage, selectedPlan.kind)
+    : null;
+  const closePaywall = () => {
+    setSelectedPackageId(null);
+    dismissPaywall();
+  };
+  const purchaseSelectedPlan = () => {
+    if (selectedPlan) void purchase(selectedPlan.aPackage);
+  };
 
   return (
     <Modal
       visible={Boolean(paywallReason)}
       transparent
       animationType="slide"
-      onRequestClose={dismissPaywall}
+      onRequestClose={closePaywall}
     >
       <View style={[styles.modalBackdrop, { backgroundColor: colors.overlay }]}>
-        <View style={[styles.sheet, { backgroundColor: colors.card, borderColor: colors.border }]}>
-          <View style={styles.sheetHandle} />
+        <View
+          style={[
+            styles.sheet,
+            {
+              backgroundColor: colors.card,
+              borderColor: colors.border,
+              maxHeight: height * 0.94,
+            },
+          ]}
+        >
+          <View style={styles.sheetTopRow}>
+            <View style={[styles.sheetHandle, { backgroundColor: colors.border }]} />
           <Pressable
             accessibilityRole="button"
             accessibilityLabel="Close subscription offer"
             testID="close-paywall"
-            onPress={dismissPaywall}
+            onPress={closePaywall}
             style={styles.closeButton}
           >
             <Feather name="x" size={20} color={colors.mutedForeground} />
           </Pressable>
-          <View style={styles.heroIcon}>
-            <Feather name="zap" size={22} color={colors.primaryForeground} />
           </View>
-          <Text style={[styles.eyebrow, { color: colors.primary }]}>{copy.eyebrow}</Text>
-          <Text style={[styles.title, { color: colors.foreground }]}>{isPro ? 'STUDYNUT PRO is active' : copy.title}</Text>
-          <Text style={[styles.body, { color: colors.mutedForeground }]}>{copy.body}</Text>
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+            contentContainerStyle={styles.sheetContent}
+          >
+            <View
+              style={[
+                styles.heroIcon,
+                { backgroundColor: colors.primary },
+              ]}
+            >
+              <Feather name="zap" size={22} color={colors.primaryForeground} />
+            </View>
+            <Text style={[styles.eyebrow, { color: colors.primary }]}>
+              {copy.eyebrow}
+            </Text>
+            <Text style={[styles.title, { color: colors.foreground }]}>
+              {isPro ? 'STUDYNUT PRO is active' : copy.title}
+            </Text>
+            <Text style={[styles.body, { color: colors.mutedForeground }]}>
+              {isPro
+                ? 'Your active subscription is linked to your store account.'
+                : copy.body}
+            </Text>
 
-          {!isPro && packages.length > 0 ? (
-            <View style={styles.packageList}>
-              {packages.map((aPackage) => (
-                <Pressable
-                  key={aPackage.identifier}
-                  accessibilityRole="button"
-                  testID={`purchase-${aPackage.identifier}`}
-                  onPress={() => purchase(aPackage)}
-                  disabled={loading}
-                  style={({ pressed }) => [
-                    styles.packageRow,
-                    { borderColor: colors.border, backgroundColor: colors.background, opacity: pressed || loading ? 0.72 : 1 },
-                  ]}
-                >
-                  <View style={{ flex: 1, gap: 3 }}>
-                    <Text style={[styles.packageName, { color: colors.foreground }]}>{packageLabel(aPackage)}</Text>
-                    <Text style={[styles.packageDescription, { color: colors.mutedForeground }]} numberOfLines={1}>
-                      {aPackage.product.title}
+            <View
+              style={[
+                styles.benefitPanel,
+                {
+                  backgroundColor: colors.surfaceRaised,
+                  borderColor: colors.border,
+                },
+              ]}
+            >
+              <Text style={[styles.benefitHeading, { color: colors.foreground }]}>
+                PRO includes
+              </Text>
+              {[
+                {
+                  icon: 'clock' as const,
+                  title: 'Timed Paper 2 & 4 practice',
+                  detail: 'Cambridge-style sample papers, not official past papers.',
+                },
+                {
+                  icon: 'camera' as const,
+                  title: 'More scan-preview sessions',
+                  detail: 'The current scan flow is a local preview, not AI grading.',
+                },
+                {
+                  icon: 'file-text' as const,
+                  title: 'Expanded command-term rubrics',
+                  detail: 'Context, examples, and common mark-loss traps.',
+                },
+                {
+                  icon: 'mic' as const,
+                  title: 'Longer Ghost Mode practice',
+                  detail: 'Up to five minutes; prompts are scripted, not live voice AI.',
+                },
+              ].map((benefit) => (
+                <View key={benefit.title} style={styles.benefitRow}>
+                  <View
+                    style={[
+                      styles.benefitIcon,
+                      { backgroundColor: colors.primarySoft },
+                    ]}
+                  >
+                    <Feather
+                      name={benefit.icon}
+                      size={15}
+                      color={colors.primary}
+                    />
+                  </View>
+                  <View style={styles.benefitCopy}>
+                    <Text
+                      style={[
+                        styles.benefitTitle,
+                        { color: colors.foreground },
+                      ]}
+                    >
+                      {benefit.title}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.benefitDetail,
+                        { color: colors.mutedForeground },
+                      ]}
+                    >
+                      {benefit.detail}
                     </Text>
                   </View>
-                  <Text style={[styles.packagePrice, { color: colors.primary }]}>{packageDetail(aPackage)}</Text>
-                </Pressable>
+                </View>
               ))}
             </View>
-          ) : (
-            <View style={[styles.emptyOffer, { backgroundColor: colors.muted }]}>
-              <ActivityIndicator color={colors.primary} size="small" />
-              <Text style={[styles.packageDescription, { color: colors.mutedForeground }]}>
-                {offerings ? 'Plans are not available right now.' : 'Loading plans from RevenueCat…'}
-              </Text>
-            </View>
-          )}
 
-          {error ? <Text style={[styles.error, { color: colors.destructive }]}>{error}</Text> : null}
-          <Pressable
-            accessibilityRole="button"
-            testID="restore-purchases"
-            onPress={restorePurchases}
-            disabled={loading}
-            style={styles.restoreButton}
-          >
-            <Text style={[styles.restoreText, { color: colors.primary }]}>Restore purchases</Text>
-          </Pressable>
-          {isPro ? (
+            {!isPro && packages.length > 0 ? (
+              <View style={styles.packageList}>
+                <Text style={[styles.benefitHeading, { color: colors.foreground }]}>
+                  Choose your plan
+                </Text>
+                {packages.map(({ aPackage, kind }) => {
+                  const isSelected =
+                    selectedPlan?.aPackage.identifier === aPackage.identifier;
+                  const planTrial = freeTrialLabel(aPackage, kind);
+                  const savings = monthlySavingsLabel(
+                    aPackage,
+                    kind,
+                    monthlyPackage,
+                  );
+                  const badge =
+                    planTrial ??
+                    (kind === 'yearly' && savings ? 'Best value' : null);
+                  const perMonth =
+                    kind === 'monthly'
+                      ? null
+                      : aPackage.product.pricePerMonthString;
+                  return (
+                    <Pressable
+                      key={aPackage.identifier}
+                      accessibilityRole="radio"
+                      accessibilityLabel={`${planLabel(kind)}, ${aPackage.product.priceString} per ${planPeriod(kind)}`}
+                      accessibilityState={{
+                        selected: isSelected,
+                        disabled: loading,
+                      }}
+                      testID={`select-plan-${kind}`}
+                      onPress={() => setSelectedPackageId(aPackage.identifier)}
+                      disabled={loading}
+                      style={({ pressed }) => [
+                        styles.packageRow,
+                        {
+                          borderColor: isSelected ? colors.primary : colors.border,
+                          backgroundColor: isSelected
+                            ? colors.primarySoft
+                            : colors.background,
+                          opacity: pressed || loading ? 0.78 : 1,
+                        },
+                      ]}
+                    >
+                      <View style={styles.planCopy}>
+                        <View style={styles.planTitleRow}>
+                          <Text
+                            style={[
+                              styles.packageName,
+                              { color: colors.foreground },
+                            ]}
+                          >
+                            {planLabel(kind)}
+                          </Text>
+                          {badge ? (
+                            <View
+                              style={[
+                                styles.planBadge,
+                                { backgroundColor: colors.primary },
+                              ]}
+                            >
+                              <Text
+                                style={[
+                                  styles.planBadgeText,
+                                  { color: colors.primaryForeground },
+                                ]}
+                              >
+                                {badge}
+                              </Text>
+                            </View>
+                          ) : null}
+                        </View>
+                        <Text
+                          style={[
+                            styles.planPrice,
+                            { color: colors.foreground },
+                          ]}
+                        >
+                          {aPackage.product.priceString}
+                          <Text
+                            style={[
+                              styles.packageDescription,
+                              { color: colors.mutedForeground },
+                            ]}
+                          >
+                            {' '}
+                            / {planPeriod(kind)}
+                          </Text>
+                        </Text>
+                        {perMonth ? (
+                          <Text
+                            style={[
+                              styles.packageDescription,
+                              { color: colors.mutedForeground },
+                            ]}
+                          >
+                            {perMonth} per month
+                            {savings ? ` · ${savings}` : ''}
+                          </Text>
+                        ) : null}
+                      </View>
+                      <View
+                        style={[
+                          styles.radioOuter,
+                          {
+                            borderColor: isSelected
+                              ? colors.primary
+                              : colors.input,
+                          },
+                        ]}
+                      >
+                        {isSelected ? (
+                          <View
+                            style={[
+                              styles.radioInner,
+                              { backgroundColor: colors.primary },
+                            ]}
+                          />
+                        ) : null}
+                      </View>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            ) : null}
+
+            {!isPro && packages.length === 0 ? (
+              <View style={[styles.emptyOffer, { backgroundColor: colors.muted }]}>
+                {ready ? (
+                  <Feather
+                    name="alert-circle"
+                    size={16}
+                    color={colors.mutedForeground}
+                  />
+                ) : (
+                  <ActivityIndicator color={colors.primary} size="small" />
+                )}
+                <Text
+                  style={[
+                    styles.packageDescription,
+                    { color: colors.mutedForeground, flex: 1 },
+                  ]}
+                >
+                  {ready
+                    ? 'Subscription plans are unavailable on this build.'
+                    : 'Loading plans from RevenueCat…'}
+                </Text>
+              </View>
+            ) : null}
+
+            {trialLabel && selectedPlan ? (
+              <Text style={[styles.trialNote, { color: colors.accentForeground }]}>
+                {trialLabel} applies to this plan when you are eligible.
+              </Text>
+            ) : null}
+
+            {!isPro ? (
+              <Pressable
+                accessibilityRole="button"
+                testID="purchase-selected-plan"
+                onPress={purchaseSelectedPlan}
+                disabled={loading || !selectedPlan}
+                style={({ pressed }) => [
+                  styles.purchaseButton,
+                  {
+                    backgroundColor: colors.primary,
+                    opacity:
+                      loading || !selectedPlan ? 0.5 : pressed ? 0.82 : 1,
+                  },
+                ]}
+              >
+                {loading ? (
+                  <ActivityIndicator color={colors.primaryForeground} />
+                ) : (
+                  <>
+                    <Text
+                      style={[
+                        styles.purchaseButtonText,
+                        { color: colors.primaryForeground },
+                      ]}
+                    >
+                      {selectedPlan
+                        ? trialLabel
+                          ? `Start ${trialLabel}`
+                          : selectedPlan.kind === 'monthly'
+                            ? 'Upgrade now'
+                            : `Continue with ${planLabel(selectedPlan.kind)}`
+                        : 'Plans unavailable'}
+                    </Text>
+                    {selectedPlan ? (
+                      <Feather
+                        name="arrow-right"
+                        size={17}
+                        color={colors.primaryForeground}
+                      />
+                    ) : null}
+                  </>
+                )}
+              </Pressable>
+            ) : null}
+
+            {error ? (
+              <Text style={[styles.error, { color: colors.destructive }]}>
+                {error}
+              </Text>
+            ) : null}
+            <Pressable
+              accessibilityRole="button"
+              testID="restore-purchases"
+              onPress={restorePurchases}
+              disabled={loading}
+              style={styles.restoreButton}
+            >
+              <Text style={[styles.restoreText, { color: colors.primary }]}>
+                Restore purchases
+              </Text>
+            </Pressable>
+            {isPro ? (
             <Pressable
               accessibilityRole="button"
               testID="manage-subscription"
@@ -506,10 +863,14 @@ function SubscriptionPaywall() {
             >
               <Text style={[styles.restoreText, { color: colors.primary }]}>Manage subscription</Text>
             </Pressable>
-          ) : null}
-          <Text style={[styles.footnote, { color: colors.mutedForeground }]}>
-            Payment is handled securely by your app store. Plans and prices may vary by country.
-          </Text>
+            ) : null}
+            <Text style={[styles.footnote, { color: colors.mutedForeground }]}>
+              Price and renewal terms are provided by your store. Free trials
+              appear only when the store offer is available to your account.
+              Scans and Ghost Mode are currently previews; they are not AI-graded
+              or live voice sessions.
+            </Text>
+          </ScrollView>
         </View>
       </View>
     </Modal>
@@ -520,38 +881,45 @@ const styles = StyleSheet.create({
   modalBackdrop: {
     flex: 1,
     justifyContent: 'flex-end',
+    alignItems: 'center',
   },
   sheet: {
+    width: '100%',
+    maxWidth: 560,
     borderTopWidth: 1,
     borderTopLeftRadius: 28,
     borderTopRightRadius: 28,
+    overflow: 'hidden',
+  },
+  sheetTopRow: {
+    height: 42,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  sheetContent: {
     paddingHorizontal: 20,
-    paddingTop: 14,
-    paddingBottom: 30,
+    paddingTop: 4,
+    paddingBottom: 28,
     gap: 11,
   },
   sheetHandle: {
-    alignSelf: 'center',
     width: 42,
     height: 4,
     borderRadius: 99,
-    backgroundColor: '#CBD5E1',
-    marginBottom: 2,
   },
   closeButton: {
     position: 'absolute',
-    top: 16,
-    right: 16,
+    top: 6,
+    right: 14,
     padding: 6,
   },
   heroIcon: {
     width: 46,
     height: 46,
     borderRadius: 16,
-    backgroundColor: '#335CFF',
     alignItems: 'center',
     justifyContent: 'center',
-    marginTop: 4,
+    backgroundColor: 'transparent',
   },
   eyebrow: {
     fontFamily: 'Inter_700Bold',
@@ -570,29 +938,116 @@ const styles = StyleSheet.create({
   },
   packageList: {
     gap: 8,
-    marginTop: 3,
+    marginTop: 2,
   },
   packageRow: {
-    minHeight: 62,
+    minHeight: 76,
     borderWidth: 1,
     borderRadius: 16,
-    paddingHorizontal: 14,
-    paddingVertical: 11,
+    paddingHorizontal: 13,
+    paddingVertical: 12,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
+  },
+  planCopy: {
+    flex: 1,
+    gap: 4,
+  },
+  planTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  planBadge: {
+    borderRadius: 99,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  planBadgeText: {
+    fontFamily: 'Inter_700Bold',
+    fontSize: 9,
+    letterSpacing: 0.45,
+    textTransform: 'uppercase',
   },
   packageName: {
     fontFamily: 'Inter_700Bold',
     fontSize: 14,
   },
+  planPrice: {
+    fontFamily: 'Inter_700Bold',
+    fontSize: 15,
+  },
   packageDescription: {
     fontFamily: 'Inter_400Regular',
-    fontSize: 11,
+    fontSize: 12,
   },
-  packagePrice: {
+  radioOuter: {
+    width: 21,
+    height: 21,
+    borderRadius: 99,
+    borderWidth: 1.5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  radioInner: {
+    width: 11,
+    height: 11,
+    borderRadius: 99,
+  },
+  benefitPanel: {
+    borderWidth: 1,
+    borderRadius: 18,
+    padding: 14,
+    gap: 13,
+  },
+  benefitHeading: {
     fontFamily: 'Inter_700Bold',
     fontSize: 14,
+  },
+  benefitRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+  },
+  benefitIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 10,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  benefitCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  benefitTitle: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 12,
+  },
+  benefitDetail: {
+    fontFamily: 'Inter_400Regular',
+    fontSize: 11,
+    lineHeight: 15,
+  },
+  purchaseButton: {
+    minHeight: 52,
+    borderRadius: 16,
+    paddingHorizontal: 18,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 9,
+    marginTop: 2,
+  },
+  purchaseButtonText: {
+    fontFamily: 'Inter_700Bold',
+    fontSize: 15,
+  },
+  trialNote: {
+    fontFamily: 'Inter_600SemiBold',
+    fontSize: 12,
   },
   emptyOffer: {
     minHeight: 58,
@@ -601,6 +1056,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     flexDirection: 'row',
     gap: 9,
+    paddingHorizontal: 14,
   },
   error: {
     fontFamily: 'Inter_500Medium',

@@ -2,3 +2,4 @@
 - [Native tabs on web](native-tabs-web.md) — restrict the liquid-glass NativeTabs branch to iOS; the web preview can render blank otherwise.
 - [Expo static-export assets](expo-static-export-assets.md) — asset metadata matchers must handle quoted keys and verify copied assets after successful bundling.
 - [NutAI API routing](nutai-api-routing.md) — use the same-origin `/api` path for web; native clients need the configured API host.
+- [RevenueCat store separation](revenuecat-store-separation.md) — keep the Test Store key development-only; live purchases need matching store apps, products, and keys.
