@@ -9,41 +9,316 @@ export interface HealthStatus {
   status: string;
 }
 
-export type NutAiMessageRole =
-  (typeof NutAiMessageRole)[keyof typeof NutAiMessageRole];
+export type NutAiMessageRole = typeof NutAiMessageRole[keyof typeof NutAiMessageRole];
+
 
 export const NutAiMessageRole = {
-  student: "student",
-  tutor: "tutor",
+  student: 'student',
+  tutor: 'tutor',
 } as const;
 
 export interface NutAiMessage {
   role: NutAiMessageRole;
   /**
-   * @minLength 1
-   * @maxLength 1500
-   */
+     * @minLength 1
+     * @maxLength 1500
+     */
   content: string;
 }
 
 export interface NutAiChatRequest {
   /**
-   * @minimum 1
-   * @maximum 13
-   */
+     * @minimum 1
+     * @maximum 13
+     */
   grade: number;
   /**
-   * @minLength 1
-   * @maxLength 80
-   */
+     * @minLength 1
+     * @maxLength 80
+     */
   subject: string;
   /**
-   * @minItems 1
-   * @maxItems 12
-   */
+     * @minItems 1
+     * @maxItems 12
+     */
   messages: NutAiMessage[];
+}
+
+export type StudyTutorMessageRole = typeof StudyTutorMessageRole[keyof typeof StudyTutorMessageRole];
+
+
+export const StudyTutorMessageRole = {
+  student: 'student',
+  tutor: 'tutor',
+} as const;
+
+export interface StudyTutorMessage {
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  id: string;
+  role: StudyTutorMessageRole;
+  /** @maxLength 12000 */
+  text: string;
+}
+
+export interface StudyExamResult {
+  /**
+     * @minLength 1
+     * @maxLength 100
+     */
+  id: string;
+  /**
+     * @minLength 1
+     * @maxLength 160
+     */
+  title: string;
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  subject: string;
+  /** @minimum 0 */
+  score: number;
+  /** @minimum 1 */
+  total: number;
+  /** @minimum 1 */
+  elapsedMinutes: number;
+  /**
+     * @minLength 10
+     * @maxLength 40
+     */
+  completedAt: string;
+}
+
+export interface StudyDataDocument {
+  /**
+     * @minimum 1
+     * @maximum 13
+     */
+  grade: number;
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  subject: string;
+  /**
+     * @minimum 1
+     * @maximum 1440
+     */
+  dailyTargetMinutes: number;
+  /**
+     * @minimum 1
+     * @maximum 1000
+     */
+  dailyTargetQuestions: number;
+  /** @minimum 0 */
+  todayQuestions: number;
+  /** @minimum 0 */
+  todayMinutes: number;
+  /** @minimum 0 */
+  correctAnswers: number;
+  /** @minimum 0 */
+  streakDays: number;
+  /**
+     * @minLength 10
+     * @maxLength 10
+     * @nullable
+     */
+  lastStudyDate: string | null;
+  /**
+     * @minLength 10
+     * @maxLength 10
+     */
+  activeDate: string;
+  /** @minimum 0 */
+  completedExams: number;
+  /**
+     * @maxItems 1000
+     * @items.maxLength 200
+     */
+  bookmarks: string[];
+  /**
+     * @maxItems 1000
+     * @items.maxLength 200
+     */
+  weakQuestions: string[];
+  /** @maxItems 100 */
+  examHistory: StudyExamResult[];
+  /** @maxItems 100 */
+  tutorMessages: StudyTutorMessage[];
+}
+
+export interface StudyDataInput {
+  data: StudyDataDocument;
+}
+
+export interface StudyDataResponse {
+  data: StudyDataDocument | null;
+  /** @nullable */
+  updatedAt: string | null;
+}
+
+export type StudyActivityInputKind = typeof StudyActivityInputKind[keyof typeof StudyActivityInputKind];
+
+
+export const StudyActivityInputKind = {
+  'exam-result': 'exam-result',
+  'scan-review': 'scan-review',
+  'ghost-session': 'ghost-session',
+} as const;
+
+export type StudyActivityInputDetails = { [key: string]: unknown };
+
+export interface StudyActivityInput {
+  kind: StudyActivityInputKind;
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  subject: string;
+  /**
+     * @minLength 1
+     * @maxLength 160
+     */
+  title: string;
+  details: StudyActivityInputDetails;
+}
+
+export type StudyActivityKind = typeof StudyActivityKind[keyof typeof StudyActivityKind];
+
+
+export const StudyActivityKind = {
+  'exam-result': 'exam-result',
+  'scan-review': 'scan-review',
+  'ghost-session': 'ghost-session',
+} as const;
+
+export type StudyActivityDetails = { [key: string]: unknown };
+
+export interface StudyActivity {
+  /** @minimum 1 */
+  id: number;
+  kind: StudyActivityKind;
+  subject: string;
+  title: string;
+  details: StudyActivityDetails;
+  createdAt: string;
+}
+
+export type NutAiScanReviewRequestMimeType = typeof NutAiScanReviewRequestMimeType[keyof typeof NutAiScanReviewRequestMimeType];
+
+
+export const NutAiScanReviewRequestMimeType = {
+  'image/jpeg': 'image/jpeg',
+  'image/png': 'image/png',
+  'image/webp': 'image/webp',
+} as const;
+
+export interface NutAiScanReviewRequest {
+  /**
+     * @minimum 1
+     * @maximum 13
+     */
+  grade: number;
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  subject: string;
+  mimeType: NutAiScanReviewRequestMimeType;
+  /**
+     * @minLength 100
+     * @maxLength 6000000
+     */
+  imageBase64: string;
+}
+
+export type ScanReviewResultConfidence = typeof ScanReviewResultConfidence[keyof typeof ScanReviewResultConfidence];
+
+
+export const ScanReviewResultConfidence = {
+  low: 'low',
+  medium: 'medium',
+  high: 'high',
+} as const;
+
+export interface ScanReviewResult {
+  /** @minimum 1 */
+  activityId: number;
+  subject: string;
+  grade: number;
+  extractedText: string;
+  summary: string;
+  strengths: string[];
+  improvements: string[];
+  nextStep: string;
+  confidence: ScanReviewResultConfidence;
+  needsClearerImage: boolean;
+  createdAt: string;
+}
+
+export interface GhostSessionStartInput {
+  /**
+     * @minimum 1
+     * @maximum 13
+     */
+  grade: number;
+  /**
+     * @minLength 1
+     * @maxLength 80
+     */
+  subject: string;
+}
+
+export interface GhostSessionStartResult {
+  /** @minimum 1 */
+  sessionId: number;
+  question: string;
+  commandTerm: string;
+  rubric: string;
+}
+
+export interface GhostAnswerInput {
+  /**
+     * @minLength 1
+     * @maxLength 4000
+     */
+  answer: string;
+}
+
+export interface GhostAnswerResult {
+  feedback: string;
+  /**
+     * @minimum 1
+     * @maximum 5
+     */
+  score: number;
+  nextQuestion: string;
+  nextCommandTerm: string;
+  nextRubric: string;
+  /** @minimum 1 */
+  turnNumber: number;
+}
+
+export interface GhostSessionCompleteInput {
+  /**
+     * @minimum 0
+     * @maximum 1800
+     */
+  durationSeconds: number;
 }
 
 export interface ApiError {
   error: string;
 }
+
+export type GetStudyActivitiesParams = {
+/**
+ * @minimum 1
+ * @maximum 50
+ */
+limit?: number;
+};
+

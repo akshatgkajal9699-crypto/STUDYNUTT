@@ -28,6 +28,7 @@ interface ExamSession {
 
 interface ExamResult {
   title: string;
+  subject: string;
   score: number;
   total: number;
   elapsedMinutes: number;
@@ -68,13 +69,15 @@ export default function ExamsScreen() {
   function finishExam(resultItems: boolean[]) {
     if (!session) return;
     const elapsedMinutes = Math.max(1, Math.floor((Date.now() - session.startedAt) / 60_000));
-    recordExam(elapsedMinutes);
-    setExamResult({
+    const result = {
       title: session.title,
+      subject: session.subject,
       score: resultItems.filter(Boolean).length,
       total: session.mode === 'mcq' ? session.mcqQuestions.length : session.writtenQuestions.length,
       elapsedMinutes,
-    });
+    };
+    recordExam(elapsedMinutes, result);
+    setExamResult(result);
     setSession(null);
   }
 
@@ -336,7 +339,7 @@ export default function ExamsScreen() {
             </View>
           </View>
           <Text style={{ color: colors.foreground, fontFamily: 'Inter_700Bold', fontSize: 24 }}>{examResult.score} / {examResult.total}<Text style={{ color: colors.mutedForeground, fontFamily: 'Inter_500Medium', fontSize: 13 }}>  self-marked</Text></Text>
-          <BodyText>Your result and study time have been added to your on-device progress.</BodyText>
+          <BodyText>Your result and study time are saved to your study history.</BodyText>
         </Card>
       ) : null}
 

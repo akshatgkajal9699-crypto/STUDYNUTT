@@ -1,5 +1,4 @@
 import React, { useEffect, useRef, useState } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useAuth } from '@clerk/expo';
 import { Feather } from '@expo/vector-icons';
 import { fetch as expoFetch } from 'expo/fetch';
@@ -29,36 +28,6 @@ const STARTER_MESSAGE: ChatMessage = {
 };
 
 const MAX_SAVED_MESSAGES = 100;
-
-function isChatMessage(value: unknown): value is ChatMessage {
-  if (typeof value !== 'object' || value === null) return false;
-  if (!('id' in value) || !('role' in value) || !('text' in value)) return false;
-  return (
-    typeof value.id === 'string' &&
-    (value.role === 'student' || value.role === 'tutor') &&
-    typeof value.text === 'string'
-  );
-}
-
-function readSavedMessages(value: string | null): ChatMessage[] {
-  if (!value) return [];
-  try {
-    const parsed: unknown = JSON.parse(value);
-    if (!Array.isArray(parsed)) return [];
-    return parsed.filter(isChatMessage).slice(-MAX_SAVED_MESSAGES);
-  } catch {
-    return [];
-  }
-}
-
-function persistMessages(storageKey: string, messages: ChatMessage[]) {
-  return AsyncStorage.setItem(
-    storageKey,
-    JSON.stringify(messages.slice(-MAX_SAVED_MESSAGES)),
-  ).catch((error: unknown) => {
-    console.warn('Could not save NutAI chat history.', error);
-  });
-}
 
 let messageCounter = 0;
 function createMessageId() {
@@ -163,43 +132,30 @@ async function streamNutAiResponse(
 export default function TutorScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
-  const { data } = useStudy();
+  const { data, ready: studyReady, setTutorMessages } = useStudy();
   const router = useRouter();
-  const { getToken, isLoaded, isSignedIn, userId } = useAuth();
-  const historyStorageKey = `@studynut/nutai-chat-v1:${encodeURIComponent(userId ?? 'guest')}`;
+  const { getToken, isLoaded, isSignedIn } = useAuth();
   const [messages, setMessages] = useState<ChatMessage[]>([STARTER_MESSAGE]);
-  const [loadedHistoryKey, setLoadedHistoryKey] = useState<string | null>(null);
   const [draft, setDraft] = useState('');
   const [isSending, setIsSending] = useState(false);
   const [showTyping, setShowTyping] = useState(false);
   const sendingRef = useRef(false);
   const abortControllerRef = useRef<AbortController | null>(null);
-  const historyReady = loadedHistoryKey === historyStorageKey;
+  const historyReady = studyReady;
 
   useEffect(() => {
-    let active = true;
-    AsyncStorage.getItem(historyStorageKey)
-      .then((stored) => {
-        if (!active) return;
-        const savedMessages = readSavedMessages(stored);
-        setMessages(savedMessages.length > 0 ? savedMessages : [STARTER_MESSAGE]);
-      })
-      .catch((error: unknown) => {
-        console.warn('Could not restore NutAI chat history.', error);
-        if (active) setMessages([STARTER_MESSAGE]);
-      })
-      .finally(() => {
-        if (active) setLoadedHistoryKey(historyStorageKey);
-      });
-    return () => {
-      active = false;
-    };
-  }, [historyStorageKey]);
+    if (!studyReady || sendingRef.current) return;
+    setMessages(
+      data.tutorMessages.length > 0
+        ? data.tutorMessages
+        : [STARTER_MESSAGE],
+    );
+  }, [data.tutorMessages, studyReady]);
 
   useEffect(() => {
     if (!historyReady || isSending) return;
-    void persistMessages(historyStorageKey, messages);
-  }, [historyReady, historyStorageKey, isSending, messages]);
+    setTutorMessages(messages.slice(-MAX_SAVED_MESSAGES));
+  }, [historyReady, isSending, messages, setTutorMessages]);
 
   useEffect(
     () => () => {
@@ -230,7 +186,6 @@ export default function TutorScreen() {
     let tutorMessageAdded = false;
 
     setMessages(messagesWithPrompt);
-    void persistMessages(historyStorageKey, messagesWithPrompt);
     setDraft('');
     setIsSending(true);
     setShowTyping(true);

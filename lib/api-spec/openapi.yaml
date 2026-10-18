@@ -12,6 +12,8 @@ tags:
     description: Health operations
   - name: nutai
     description: NutAI study tutor
+  - name: studynut
+    description: STUDYNUT learner data and activity history
 paths:
   /healthz:
     get:
@@ -71,6 +73,322 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ApiError"
+  /nutai/scan-review:
+    post:
+      operationId: reviewStudyScan
+      tags: [nutai]
+      summary: Review a learner's photographed work
+      description: Uses NutAI vision to read and give formative feedback on a student work image. The image is processed for this request and is not retained.
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NutAiScanReviewRequest"
+      responses:
+        "200":
+          description: Feedback was generated and the review was saved to the learner's activity history.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScanReviewResult"
+        "400":
+          description: Invalid image or learner context.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Sign-in is required.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "429":
+          description: The per-user request limit was reached.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "502":
+          description: NutAI could not read or assess the image.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: NutAI is not configured for image review.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /nutai/ghost-sessions:
+    post:
+      operationId: startGhostSession
+      tags: [nutai]
+      summary: Start a personalized Ghost Mode practice session
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GhostSessionStartInput"
+      responses:
+        "201":
+          description: Session started and saved to the learner's activity history.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GhostSessionStartResult"
+        "400":
+          description: Invalid session request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Sign-in is required.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "429":
+          description: The per-user request limit was reached.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "502":
+          description: NutAI could not prepare the session.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: NutAI is not configured.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /nutai/ghost-sessions/{sessionId}/turns:
+    post:
+      operationId: submitGhostAnswer
+      tags: [nutai]
+      summary: Evaluate a learner answer and continue Ghost Mode
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GhostAnswerInput"
+      responses:
+        "200":
+          description: The answer was evaluated and the session history was saved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GhostAnswerResult"
+        "400":
+          description: Invalid answer.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Sign-in is required.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Session was not found for this learner.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "429":
+          description: The per-user request limit was reached.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "502":
+          description: NutAI could not evaluate the answer.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "503":
+          description: NutAI is not configured.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /nutai/ghost-sessions/{sessionId}/complete:
+    post:
+      operationId: completeGhostSession
+      tags: [nutai]
+      summary: Finish and save a Ghost Mode session
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: sessionId
+          in: path
+          required: true
+          schema:
+            type: integer
+            minimum: 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/GhostSessionCompleteInput"
+      responses:
+        "200":
+          description: The completed session was saved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StudyActivity"
+        "401":
+          description: Sign-in is required.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "404":
+          description: Session was not found for this learner.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /studynut/data:
+    get:
+      operationId: getStudyData
+      tags: [studynut]
+      summary: Get the signed-in learner's saved study data
+      security:
+        - bearerAuth: []
+      responses:
+        "200":
+          description: Current saved study data, or null when the learner has not synced yet.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StudyDataResponse"
+        "401":
+          description: Sign-in is required.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    put:
+      operationId: saveStudyData
+      tags: [studynut]
+      summary: Save the signed-in learner's study progress and tutor history
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StudyDataInput"
+      responses:
+        "200":
+          description: Saved study data.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StudyDataResponse"
+        "400":
+          description: Invalid or oversized study data.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Sign-in is required.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+  /studynut/activities:
+    get:
+      operationId: getStudyActivities
+      tags: [studynut]
+      summary: List the signed-in learner's recent saved activities
+      security:
+        - bearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 50
+            default: 20
+      responses:
+        "200":
+          description: Recent activity in reverse chronological order.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/StudyActivity"
+        "401":
+          description: Sign-in is required.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+    post:
+      operationId: createStudyActivity
+      tags: [studynut]
+      summary: Save a completed study or exam activity
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StudyActivityInput"
+      responses:
+        "201":
+          description: Activity saved.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StudyActivity"
+        "400":
+          description: Invalid activity.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
+        "401":
+          description: Sign-in is required.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiError"
 components:
   securitySchemes:
     bearerAuth:
@@ -118,6 +436,207 @@ components:
         - grade
         - subject
         - messages
+    StudyTutorMessage:
+      type: object
+      properties:
+        id:
+          type: string
+          minLength: 1
+          maxLength: 100
+        role:
+          type: string
+          enum: [student, tutor]
+        text:
+          type: string
+          maxLength: 12000
+      required: [id, role, text]
+    StudyExamResult:
+      type: object
+      properties:
+        id: { type: string, minLength: 1, maxLength: 100 }
+        title: { type: string, minLength: 1, maxLength: 160 }
+        subject: { type: string, minLength: 1, maxLength: 80 }
+        score: { type: integer, minimum: 0 }
+        total: { type: integer, minimum: 1 }
+        elapsedMinutes: { type: integer, minimum: 1 }
+        completedAt: { type: string, minLength: 10, maxLength: 40 }
+      required: [id, title, subject, score, total, elapsedMinutes, completedAt]
+    StudyDataDocument:
+      type: object
+      properties:
+        grade: { type: integer, minimum: 1, maximum: 13 }
+        subject: { type: string, minLength: 1, maxLength: 80 }
+        dailyTargetMinutes: { type: integer, minimum: 1, maximum: 1440 }
+        dailyTargetQuestions: { type: integer, minimum: 1, maximum: 1000 }
+        todayQuestions: { type: integer, minimum: 0 }
+        todayMinutes: { type: integer, minimum: 0 }
+        correctAnswers: { type: integer, minimum: 0 }
+        streakDays: { type: integer, minimum: 0 }
+        lastStudyDate: { type: ["string", "null"], minLength: 10, maxLength: 10 }
+        activeDate: { type: string, minLength: 10, maxLength: 10 }
+        completedExams: { type: integer, minimum: 0 }
+        bookmarks:
+          type: array
+          maxItems: 1000
+          items: { type: string, maxLength: 200 }
+        weakQuestions:
+          type: array
+          maxItems: 1000
+          items: { type: string, maxLength: 200 }
+        examHistory:
+          type: array
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/StudyExamResult"
+        tutorMessages:
+          type: array
+          maxItems: 100
+          items:
+            $ref: "#/components/schemas/StudyTutorMessage"
+      required:
+        - grade
+        - subject
+        - dailyTargetMinutes
+        - dailyTargetQuestions
+        - todayQuestions
+        - todayMinutes
+        - correctAnswers
+        - streakDays
+        - lastStudyDate
+        - activeDate
+        - completedExams
+        - bookmarks
+        - weakQuestions
+        - examHistory
+        - tutorMessages
+    StudyDataInput:
+      type: object
+      properties:
+        data:
+          $ref: "#/components/schemas/StudyDataDocument"
+      required: [data]
+    StudyDataResponse:
+      type: object
+      properties:
+        data:
+          oneOf:
+            - $ref: "#/components/schemas/StudyDataDocument"
+            - type: "null"
+        updatedAt:
+          type: ["string", "null"]
+          format: date-time
+      required: [data, updatedAt]
+    StudyActivityInput:
+      type: object
+      properties:
+        kind:
+          type: string
+          enum: [exam-result, scan-review, ghost-session]
+        subject: { type: string, minLength: 1, maxLength: 80 }
+        title: { type: string, minLength: 1, maxLength: 160 }
+        details:
+          type: object
+          additionalProperties: true
+      required: [kind, subject, title, details]
+    StudyActivity:
+      type: object
+      properties:
+        id: { type: integer, minimum: 1 }
+        kind:
+          type: string
+          enum: [exam-result, scan-review, ghost-session]
+        subject: { type: string }
+        title: { type: string }
+        details:
+          type: object
+          additionalProperties: true
+        createdAt: { type: string, format: date-time }
+      required: [id, kind, subject, title, details, createdAt]
+    NutAiScanReviewRequest:
+      type: object
+      properties:
+        grade: { type: integer, minimum: 1, maximum: 13 }
+        subject: { type: string, minLength: 1, maxLength: 80 }
+        mimeType:
+          type: string
+          enum: [image/jpeg, image/png, image/webp]
+        imageBase64:
+          type: string
+          minLength: 100
+          maxLength: 6000000
+      required: [grade, subject, mimeType, imageBase64]
+    ScanReviewResult:
+      type: object
+      properties:
+        activityId: { type: integer, minimum: 1 }
+        subject: { type: string }
+        grade: { type: integer }
+        extractedText: { type: string }
+        summary: { type: string }
+        strengths:
+          type: array
+          items: { type: string }
+        improvements:
+          type: array
+          items: { type: string }
+        nextStep: { type: string }
+        confidence:
+          type: string
+          enum: [low, medium, high]
+        needsClearerImage: { type: boolean }
+        createdAt: { type: string, format: date-time }
+      required:
+        - activityId
+        - subject
+        - grade
+        - extractedText
+        - summary
+        - strengths
+        - improvements
+        - nextStep
+        - confidence
+        - needsClearerImage
+        - createdAt
+    GhostSessionStartInput:
+      type: object
+      properties:
+        grade: { type: integer, minimum: 1, maximum: 13 }
+        subject: { type: string, minLength: 1, maxLength: 80 }
+      required: [grade, subject]
+    GhostSessionStartResult:
+      type: object
+      properties:
+        sessionId: { type: integer, minimum: 1 }
+        question: { type: string }
+        commandTerm: { type: string }
+        rubric: { type: string }
+      required: [sessionId, question, commandTerm, rubric]
+    GhostAnswerInput:
+      type: object
+      properties:
+        answer: { type: string, minLength: 1, maxLength: 4000 }
+      required: [answer]
+    GhostAnswerResult:
+      type: object
+      properties:
+        feedback: { type: string }
+        score: { type: integer, minimum: 1, maximum: 5 }
+        nextQuestion: { type: string }
+        nextCommandTerm: { type: string }
+        nextRubric: { type: string }
+        turnNumber: { type: integer, minimum: 1 }
+      required:
+        - feedback
+        - score
+        - nextQuestion
+        - nextCommandTerm
+        - nextRubric
+        - turnNumber
+    GhostSessionCompleteInput:
+      type: object
+      properties:
+        durationSeconds: { type: integer, minimum: 0, maximum: 1800 }
+      required: [durationSeconds]
     ApiError:
       type: object
       properties:

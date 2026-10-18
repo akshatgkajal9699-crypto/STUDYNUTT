@@ -5,15 +5,17 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import * as zod from "zod";
+import * as zod from 'zod';
+
 
 /**
  * Returns server health status
  * @summary Health check
  */
 export const HealthCheckResponse = zod.object({
-  status: zod.string(),
-});
+  "status": zod.string()
+})
+
 
 /**
  * Streams a response using the learner's recent chat, grade, and current subject.
@@ -27,21 +29,471 @@ export const streamNutAiChatBodyMessagesItemContentMax = 1500;
 
 export const streamNutAiChatBodyMessagesMax = 12;
 
-export const StreamNutAiChatBody = zod.object({
-  grade: zod.number().int().min(1).max(streamNutAiChatBodyGradeMax),
-  subject: zod.string().min(1).max(streamNutAiChatBodySubjectMax),
-  messages: zod
-    .array(
-      zod.object({
-        role: zod.enum(["student", "tutor"]),
-        content: zod
-          .string()
-          .min(1)
-          .max(streamNutAiChatBodyMessagesItemContentMax),
-      }),
-    )
-    .min(1)
-    .max(streamNutAiChatBodyMessagesMax),
-});
 
-export const StreamNutAiChatResponse = zod.unknown();
+
+export const StreamNutAiChatBody = zod.object({
+  "grade": zod.number().int().min(1).max(streamNutAiChatBodyGradeMax),
+  "subject": zod.string().min(1).max(streamNutAiChatBodySubjectMax),
+  "messages": zod.array(zod.object({
+  "role": zod.enum(['student', 'tutor']),
+  "content": zod.string().min(1).max(streamNutAiChatBodyMessagesItemContentMax)
+})).min(1).max(streamNutAiChatBodyMessagesMax)
+})
+
+export const StreamNutAiChatResponse = zod.unknown()
+
+
+/**
+ * Uses NutAI vision to read and give formative feedback on a student work image. The image is processed for this request and is not retained.
+ * @summary Review a learner's photographed work
+ */
+export const reviewStudyScanBodyGradeMax = 13;
+
+export const reviewStudyScanBodySubjectMax = 80;
+
+export const reviewStudyScanBodyImageBase64Min = 100;
+export const reviewStudyScanBodyImageBase64Max = 6000000;
+
+
+
+export const ReviewStudyScanBody = zod.object({
+  "grade": zod.number().int().min(1).max(reviewStudyScanBodyGradeMax),
+  "subject": zod.string().min(1).max(reviewStudyScanBodySubjectMax),
+  "mimeType": zod.enum(['image/jpeg', 'image/png', 'image/webp']),
+  "imageBase64": zod.string().min(reviewStudyScanBodyImageBase64Min).max(reviewStudyScanBodyImageBase64Max)
+})
+
+
+
+
+export const ReviewStudyScanResponse = zod.object({
+  "activityId": zod.number().int().min(1),
+  "subject": zod.string(),
+  "grade": zod.number().int(),
+  "extractedText": zod.string(),
+  "summary": zod.string(),
+  "strengths": zod.array(zod.string()),
+  "improvements": zod.array(zod.string()),
+  "nextStep": zod.string(),
+  "confidence": zod.enum(['low', 'medium', 'high']),
+  "needsClearerImage": zod.boolean(),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Start a personalized Ghost Mode practice session
+ */
+export const startGhostSessionBodyGradeMax = 13;
+
+export const startGhostSessionBodySubjectMax = 80;
+
+
+
+export const StartGhostSessionBody = zod.object({
+  "grade": zod.number().int().min(1).max(startGhostSessionBodyGradeMax),
+  "subject": zod.string().min(1).max(startGhostSessionBodySubjectMax)
+})
+
+
+
+
+export const StartGhostSessionResponse = zod.object({
+  "sessionId": zod.number().int().min(1),
+  "question": zod.string(),
+  "commandTerm": zod.string(),
+  "rubric": zod.string()
+})
+
+
+/**
+ * @summary Evaluate a learner answer and continue Ghost Mode
+ */
+
+
+
+export const SubmitGhostAnswerParams = zod.object({
+  "sessionId": zod.coerce.number().int().min(1)
+})
+
+export const submitGhostAnswerBodyAnswerMax = 4000;
+
+
+
+export const SubmitGhostAnswerBody = zod.object({
+  "answer": zod.string().min(1).max(submitGhostAnswerBodyAnswerMax)
+})
+
+export const submitGhostAnswerResponseScoreMax = 5;
+
+
+
+
+export const SubmitGhostAnswerResponse = zod.object({
+  "feedback": zod.string(),
+  "score": zod.number().int().min(1).max(submitGhostAnswerResponseScoreMax),
+  "nextQuestion": zod.string(),
+  "nextCommandTerm": zod.string(),
+  "nextRubric": zod.string(),
+  "turnNumber": zod.number().int().min(1)
+})
+
+
+/**
+ * @summary Finish and save a Ghost Mode session
+ */
+
+
+
+export const CompleteGhostSessionParams = zod.object({
+  "sessionId": zod.coerce.number().int().min(1)
+})
+
+export const completeGhostSessionBodyDurationSecondsMin = 0;
+export const completeGhostSessionBodyDurationSecondsMax = 1800;
+
+
+
+export const CompleteGhostSessionBody = zod.object({
+  "durationSeconds": zod.number().int().min(completeGhostSessionBodyDurationSecondsMin).max(completeGhostSessionBodyDurationSecondsMax)
+})
+
+
+
+
+export const CompleteGhostSessionResponse = zod.object({
+  "id": zod.number().int().min(1),
+  "kind": zod.enum(['exam-result', 'scan-review', 'ghost-session']),
+  "subject": zod.string(),
+  "title": zod.string(),
+  "details": zod.record(zod.string(), zod.unknown()),
+  "createdAt": zod.coerce.date()
+})
+
+
+/**
+ * @summary Get the signed-in learner's saved study data
+ */
+export const getStudyDataResponseDataOneGradeMax = 13;
+
+export const getStudyDataResponseDataOneSubjectMax = 80;
+
+export const getStudyDataResponseDataOneDailyTargetMinutesMax = 1440;
+
+export const getStudyDataResponseDataOneDailyTargetQuestionsMax = 1000;
+
+export const getStudyDataResponseDataOneTodayQuestionsMin = 0;
+
+export const getStudyDataResponseDataOneTodayMinutesMin = 0;
+
+export const getStudyDataResponseDataOneCorrectAnswersMin = 0;
+
+export const getStudyDataResponseDataOneStreakDaysMin = 0;
+
+export const getStudyDataResponseDataOneLastStudyDateMin = 10;
+export const getStudyDataResponseDataOneLastStudyDateMax = 10;
+
+export const getStudyDataResponseDataOneActiveDateMin = 10;
+export const getStudyDataResponseDataOneActiveDateMax = 10;
+
+export const getStudyDataResponseDataOneCompletedExamsMin = 0;
+
+export const getStudyDataResponseDataOneBookmarksItemMax = 200;
+
+export const getStudyDataResponseDataOneBookmarksMax = 1000;
+
+export const getStudyDataResponseDataOneWeakQuestionsItemMax = 200;
+
+export const getStudyDataResponseDataOneWeakQuestionsMax = 1000;
+
+export const getStudyDataResponseDataOneExamHistoryItemIdMax = 100;
+
+export const getStudyDataResponseDataOneExamHistoryItemTitleMax = 160;
+
+export const getStudyDataResponseDataOneExamHistoryItemSubjectMax = 80;
+
+export const getStudyDataResponseDataOneExamHistoryItemScoreMin = 0;
+
+
+
+export const getStudyDataResponseDataOneExamHistoryItemCompletedAtMin = 10;
+export const getStudyDataResponseDataOneExamHistoryItemCompletedAtMax = 40;
+
+export const getStudyDataResponseDataOneExamHistoryMax = 100;
+
+export const getStudyDataResponseDataOneTutorMessagesItemIdMax = 100;
+
+export const getStudyDataResponseDataOneTutorMessagesItemTextMax = 12000;
+
+export const getStudyDataResponseDataOneTutorMessagesMax = 100;
+
+
+
+export const GetStudyDataResponse = zod.object({
+  "data": zod.union([zod.object({
+  "grade": zod.number().int().min(1).max(getStudyDataResponseDataOneGradeMax),
+  "subject": zod.string().min(1).max(getStudyDataResponseDataOneSubjectMax),
+  "dailyTargetMinutes": zod.number().int().min(1).max(getStudyDataResponseDataOneDailyTargetMinutesMax),
+  "dailyTargetQuestions": zod.number().int().min(1).max(getStudyDataResponseDataOneDailyTargetQuestionsMax),
+  "todayQuestions": zod.number().int().min(getStudyDataResponseDataOneTodayQuestionsMin),
+  "todayMinutes": zod.number().int().min(getStudyDataResponseDataOneTodayMinutesMin),
+  "correctAnswers": zod.number().int().min(getStudyDataResponseDataOneCorrectAnswersMin),
+  "streakDays": zod.number().int().min(getStudyDataResponseDataOneStreakDaysMin),
+  "lastStudyDate": zod.string().min(getStudyDataResponseDataOneLastStudyDateMin).max(getStudyDataResponseDataOneLastStudyDateMax).nullable(),
+  "activeDate": zod.string().min(getStudyDataResponseDataOneActiveDateMin).max(getStudyDataResponseDataOneActiveDateMax),
+  "completedExams": zod.number().int().min(getStudyDataResponseDataOneCompletedExamsMin),
+  "bookmarks": zod.array(zod.string().max(getStudyDataResponseDataOneBookmarksItemMax)).max(getStudyDataResponseDataOneBookmarksMax),
+  "weakQuestions": zod.array(zod.string().max(getStudyDataResponseDataOneWeakQuestionsItemMax)).max(getStudyDataResponseDataOneWeakQuestionsMax),
+  "examHistory": zod.array(zod.object({
+  "id": zod.string().min(1).max(getStudyDataResponseDataOneExamHistoryItemIdMax),
+  "title": zod.string().min(1).max(getStudyDataResponseDataOneExamHistoryItemTitleMax),
+  "subject": zod.string().min(1).max(getStudyDataResponseDataOneExamHistoryItemSubjectMax),
+  "score": zod.number().int().min(getStudyDataResponseDataOneExamHistoryItemScoreMin),
+  "total": zod.number().int().min(1),
+  "elapsedMinutes": zod.number().int().min(1),
+  "completedAt": zod.string().min(getStudyDataResponseDataOneExamHistoryItemCompletedAtMin).max(getStudyDataResponseDataOneExamHistoryItemCompletedAtMax)
+})).max(getStudyDataResponseDataOneExamHistoryMax),
+  "tutorMessages": zod.array(zod.object({
+  "id": zod.string().min(1).max(getStudyDataResponseDataOneTutorMessagesItemIdMax),
+  "role": zod.enum(['student', 'tutor']),
+  "text": zod.string().max(getStudyDataResponseDataOneTutorMessagesItemTextMax)
+})).max(getStudyDataResponseDataOneTutorMessagesMax)
+}),zod.null()]),
+  "updatedAt": zod.coerce.date().nullable()
+})
+
+
+/**
+ * @summary Save the signed-in learner's study progress and tutor history
+ */
+export const saveStudyDataBodyDataGradeMax = 13;
+
+export const saveStudyDataBodyDataSubjectMax = 80;
+
+export const saveStudyDataBodyDataDailyTargetMinutesMax = 1440;
+
+export const saveStudyDataBodyDataDailyTargetQuestionsMax = 1000;
+
+export const saveStudyDataBodyDataTodayQuestionsMin = 0;
+
+export const saveStudyDataBodyDataTodayMinutesMin = 0;
+
+export const saveStudyDataBodyDataCorrectAnswersMin = 0;
+
+export const saveStudyDataBodyDataStreakDaysMin = 0;
+
+export const saveStudyDataBodyDataLastStudyDateMin = 10;
+export const saveStudyDataBodyDataLastStudyDateMax = 10;
+
+export const saveStudyDataBodyDataActiveDateMin = 10;
+export const saveStudyDataBodyDataActiveDateMax = 10;
+
+export const saveStudyDataBodyDataCompletedExamsMin = 0;
+
+export const saveStudyDataBodyDataBookmarksItemMax = 200;
+
+export const saveStudyDataBodyDataBookmarksMax = 1000;
+
+export const saveStudyDataBodyDataWeakQuestionsItemMax = 200;
+
+export const saveStudyDataBodyDataWeakQuestionsMax = 1000;
+
+export const saveStudyDataBodyDataExamHistoryItemIdMax = 100;
+
+export const saveStudyDataBodyDataExamHistoryItemTitleMax = 160;
+
+export const saveStudyDataBodyDataExamHistoryItemSubjectMax = 80;
+
+export const saveStudyDataBodyDataExamHistoryItemScoreMin = 0;
+
+
+
+export const saveStudyDataBodyDataExamHistoryItemCompletedAtMin = 10;
+export const saveStudyDataBodyDataExamHistoryItemCompletedAtMax = 40;
+
+export const saveStudyDataBodyDataExamHistoryMax = 100;
+
+export const saveStudyDataBodyDataTutorMessagesItemIdMax = 100;
+
+export const saveStudyDataBodyDataTutorMessagesItemTextMax = 12000;
+
+export const saveStudyDataBodyDataTutorMessagesMax = 100;
+
+
+
+export const SaveStudyDataBody = zod.object({
+  "data": zod.object({
+  "grade": zod.number().int().min(1).max(saveStudyDataBodyDataGradeMax),
+  "subject": zod.string().min(1).max(saveStudyDataBodyDataSubjectMax),
+  "dailyTargetMinutes": zod.number().int().min(1).max(saveStudyDataBodyDataDailyTargetMinutesMax),
+  "dailyTargetQuestions": zod.number().int().min(1).max(saveStudyDataBodyDataDailyTargetQuestionsMax),
+  "todayQuestions": zod.number().int().min(saveStudyDataBodyDataTodayQuestionsMin),
+  "todayMinutes": zod.number().int().min(saveStudyDataBodyDataTodayMinutesMin),
+  "correctAnswers": zod.number().int().min(saveStudyDataBodyDataCorrectAnswersMin),
+  "streakDays": zod.number().int().min(saveStudyDataBodyDataStreakDaysMin),
+  "lastStudyDate": zod.string().min(saveStudyDataBodyDataLastStudyDateMin).max(saveStudyDataBodyDataLastStudyDateMax).nullable(),
+  "activeDate": zod.string().min(saveStudyDataBodyDataActiveDateMin).max(saveStudyDataBodyDataActiveDateMax),
+  "completedExams": zod.number().int().min(saveStudyDataBodyDataCompletedExamsMin),
+  "bookmarks": zod.array(zod.string().max(saveStudyDataBodyDataBookmarksItemMax)).max(saveStudyDataBodyDataBookmarksMax),
+  "weakQuestions": zod.array(zod.string().max(saveStudyDataBodyDataWeakQuestionsItemMax)).max(saveStudyDataBodyDataWeakQuestionsMax),
+  "examHistory": zod.array(zod.object({
+  "id": zod.string().min(1).max(saveStudyDataBodyDataExamHistoryItemIdMax),
+  "title": zod.string().min(1).max(saveStudyDataBodyDataExamHistoryItemTitleMax),
+  "subject": zod.string().min(1).max(saveStudyDataBodyDataExamHistoryItemSubjectMax),
+  "score": zod.number().int().min(saveStudyDataBodyDataExamHistoryItemScoreMin),
+  "total": zod.number().int().min(1),
+  "elapsedMinutes": zod.number().int().min(1),
+  "completedAt": zod.string().min(saveStudyDataBodyDataExamHistoryItemCompletedAtMin).max(saveStudyDataBodyDataExamHistoryItemCompletedAtMax)
+})).max(saveStudyDataBodyDataExamHistoryMax),
+  "tutorMessages": zod.array(zod.object({
+  "id": zod.string().min(1).max(saveStudyDataBodyDataTutorMessagesItemIdMax),
+  "role": zod.enum(['student', 'tutor']),
+  "text": zod.string().max(saveStudyDataBodyDataTutorMessagesItemTextMax)
+})).max(saveStudyDataBodyDataTutorMessagesMax)
+})
+})
+
+export const saveStudyDataResponseDataOneGradeMax = 13;
+
+export const saveStudyDataResponseDataOneSubjectMax = 80;
+
+export const saveStudyDataResponseDataOneDailyTargetMinutesMax = 1440;
+
+export const saveStudyDataResponseDataOneDailyTargetQuestionsMax = 1000;
+
+export const saveStudyDataResponseDataOneTodayQuestionsMin = 0;
+
+export const saveStudyDataResponseDataOneTodayMinutesMin = 0;
+
+export const saveStudyDataResponseDataOneCorrectAnswersMin = 0;
+
+export const saveStudyDataResponseDataOneStreakDaysMin = 0;
+
+export const saveStudyDataResponseDataOneLastStudyDateMin = 10;
+export const saveStudyDataResponseDataOneLastStudyDateMax = 10;
+
+export const saveStudyDataResponseDataOneActiveDateMin = 10;
+export const saveStudyDataResponseDataOneActiveDateMax = 10;
+
+export const saveStudyDataResponseDataOneCompletedExamsMin = 0;
+
+export const saveStudyDataResponseDataOneBookmarksItemMax = 200;
+
+export const saveStudyDataResponseDataOneBookmarksMax = 1000;
+
+export const saveStudyDataResponseDataOneWeakQuestionsItemMax = 200;
+
+export const saveStudyDataResponseDataOneWeakQuestionsMax = 1000;
+
+export const saveStudyDataResponseDataOneExamHistoryItemIdMax = 100;
+
+export const saveStudyDataResponseDataOneExamHistoryItemTitleMax = 160;
+
+export const saveStudyDataResponseDataOneExamHistoryItemSubjectMax = 80;
+
+export const saveStudyDataResponseDataOneExamHistoryItemScoreMin = 0;
+
+
+
+export const saveStudyDataResponseDataOneExamHistoryItemCompletedAtMin = 10;
+export const saveStudyDataResponseDataOneExamHistoryItemCompletedAtMax = 40;
+
+export const saveStudyDataResponseDataOneExamHistoryMax = 100;
+
+export const saveStudyDataResponseDataOneTutorMessagesItemIdMax = 100;
+
+export const saveStudyDataResponseDataOneTutorMessagesItemTextMax = 12000;
+
+export const saveStudyDataResponseDataOneTutorMessagesMax = 100;
+
+
+
+export const SaveStudyDataResponse = zod.object({
+  "data": zod.union([zod.object({
+  "grade": zod.number().int().min(1).max(saveStudyDataResponseDataOneGradeMax),
+  "subject": zod.string().min(1).max(saveStudyDataResponseDataOneSubjectMax),
+  "dailyTargetMinutes": zod.number().int().min(1).max(saveStudyDataResponseDataOneDailyTargetMinutesMax),
+  "dailyTargetQuestions": zod.number().int().min(1).max(saveStudyDataResponseDataOneDailyTargetQuestionsMax),
+  "todayQuestions": zod.number().int().min(saveStudyDataResponseDataOneTodayQuestionsMin),
+  "todayMinutes": zod.number().int().min(saveStudyDataResponseDataOneTodayMinutesMin),
+  "correctAnswers": zod.number().int().min(saveStudyDataResponseDataOneCorrectAnswersMin),
+  "streakDays": zod.number().int().min(saveStudyDataResponseDataOneStreakDaysMin),
+  "lastStudyDate": zod.string().min(saveStudyDataResponseDataOneLastStudyDateMin).max(saveStudyDataResponseDataOneLastStudyDateMax).nullable(),
+  "activeDate": zod.string().min(saveStudyDataResponseDataOneActiveDateMin).max(saveStudyDataResponseDataOneActiveDateMax),
+  "completedExams": zod.number().int().min(saveStudyDataResponseDataOneCompletedExamsMin),
+  "bookmarks": zod.array(zod.string().max(saveStudyDataResponseDataOneBookmarksItemMax)).max(saveStudyDataResponseDataOneBookmarksMax),
+  "weakQuestions": zod.array(zod.string().max(saveStudyDataResponseDataOneWeakQuestionsItemMax)).max(saveStudyDataResponseDataOneWeakQuestionsMax),
+  "examHistory": zod.array(zod.object({
+  "id": zod.string().min(1).max(saveStudyDataResponseDataOneExamHistoryItemIdMax),
+  "title": zod.string().min(1).max(saveStudyDataResponseDataOneExamHistoryItemTitleMax),
+  "subject": zod.string().min(1).max(saveStudyDataResponseDataOneExamHistoryItemSubjectMax),
+  "score": zod.number().int().min(saveStudyDataResponseDataOneExamHistoryItemScoreMin),
+  "total": zod.number().int().min(1),
+  "elapsedMinutes": zod.number().int().min(1),
+  "completedAt": zod.string().min(saveStudyDataResponseDataOneExamHistoryItemCompletedAtMin).max(saveStudyDataResponseDataOneExamHistoryItemCompletedAtMax)
+})).max(saveStudyDataResponseDataOneExamHistoryMax),
+  "tutorMessages": zod.array(zod.object({
+  "id": zod.string().min(1).max(saveStudyDataResponseDataOneTutorMessagesItemIdMax),
+  "role": zod.enum(['student', 'tutor']),
+  "text": zod.string().max(saveStudyDataResponseDataOneTutorMessagesItemTextMax)
+})).max(saveStudyDataResponseDataOneTutorMessagesMax)
+}),zod.null()]),
+  "updatedAt": zod.coerce.date().nullable()
+})
+
+
+/**
+ * @summary List the signed-in learner's recent saved activities
+ */
+export const getStudyActivitiesQueryLimitDefault = 20;
+export const getStudyActivitiesQueryLimitMax = 50;
+
+
+
+export const GetStudyActivitiesQueryParams = zod.object({
+  "limit": zod.coerce.number().int().min(1).max(getStudyActivitiesQueryLimitMax).default(getStudyActivitiesQueryLimitDefault)
+})
+
+
+
+
+export const GetStudyActivitiesResponseItem = zod.object({
+  "id": zod.number().int().min(1),
+  "kind": zod.enum(['exam-result', 'scan-review', 'ghost-session']),
+  "subject": zod.string(),
+  "title": zod.string(),
+  "details": zod.record(zod.string(), zod.unknown()),
+  "createdAt": zod.coerce.date()
+})
+export const GetStudyActivitiesResponse = zod.array(GetStudyActivitiesResponseItem)
+
+
+/**
+ * @summary Save a completed study or exam activity
+ */
+export const createStudyActivityBodySubjectMax = 80;
+
+export const createStudyActivityBodyTitleMax = 160;
+
+
+
+export const CreateStudyActivityBody = zod.object({
+  "kind": zod.enum(['exam-result', 'scan-review', 'ghost-session']),
+  "subject": zod.string().min(1).max(createStudyActivityBodySubjectMax),
+  "title": zod.string().min(1).max(createStudyActivityBodyTitleMax),
+  "details": zod.record(zod.string(), zod.unknown())
+})
+
+
+
+
+export const CreateStudyActivityResponse = zod.object({
+  "id": zod.number().int().min(1),
+  "kind": zod.enum(['exam-result', 'scan-review', 'ghost-session']),
+  "subject": zod.string(),
+  "title": zod.string(),
+  "details": zod.record(zod.string(), zod.unknown()),
+  "createdAt": zod.coerce.date()
+})
+
+

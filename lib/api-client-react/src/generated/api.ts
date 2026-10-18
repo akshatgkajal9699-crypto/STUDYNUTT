@@ -5,37 +5,61 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
-import { useMutation, useQuery } from "@tanstack/react-query";
+import {
+  useMutation,
+  useQuery
+} from '@tanstack/react-query';
 import type {
+  DataTag,
+  DefinedInitialDataOptions,
+  DefinedUseQueryResult,
   MutationFunction,
+  QueryClient,
   QueryFunction,
   QueryKey,
+  UndefinedInitialDataOptions,
   UseMutationOptions,
   UseMutationResult,
   UseQueryOptions,
-  UseQueryResult,
-} from "@tanstack/react-query";
+  UseQueryResult
+} from '@tanstack/react-query';
 
-import type { ApiError, HealthStatus, NutAiChatRequest } from "./api.schemas";
+import type {
+  ApiError,
+  GetStudyActivitiesParams,
+  GhostAnswerInput,
+  GhostAnswerResult,
+  GhostSessionCompleteInput,
+  GhostSessionStartInput,
+  GhostSessionStartResult,
+  HealthStatus,
+  NutAiChatRequest,
+  NutAiScanReviewRequest,
+  ScanReviewResult,
+  StudyActivity,
+  StudyActivityInput,
+  StudyDataInput,
+  StudyDataResponse
+} from './api.schemas';
 
-import { customFetch } from "../custom-fetch";
-import type { ErrorType, BodyType } from "../custom-fetch";
+import { customFetch } from '../custom-fetch';
+import type { ErrorType , BodyType } from '../custom-fetch';
 
 type AwaitedInput<T> = PromiseLike<T> | T;
 
-type Awaited<O> = O extends AwaitedInput<infer T> ? T : never;
+      type Awaited<O> = O extends AwaitedInput<infer T> ? T : never;
+
 
 type SecondParameter<T extends (...args: never) => unknown> = Parameters<T>[1];
 
-const withQueryKey = <T extends object, K>(
-  query: T,
-  queryKey: K,
-): T & { queryKey: K } => {
+
+
+const withQueryKey = <T extends object, K>(query: T, queryKey: K): T & { queryKey: K } => {
   const result = { queryKey } as T & { queryKey: K };
   for (const key of Object.keys(query)) {
     // The explicit queryKey always wins, matching the previous
     // `{ ...query, queryKey }` spread where it was set last.
-    if (key === "queryKey") continue;
+    if (key === 'queryKey') continue;
     Object.defineProperty(result, key, {
       enumerable: true,
       configurable: true,
@@ -46,193 +70,933 @@ const withQueryKey = <T extends object, K>(
 };
 
 export const getHealthCheckUrl = () => {
-  return `/api/healthz`;
-};
+
+
+
+
+  return `/api/healthz`
+}
 
 /**
  * Returns server health status
  * @summary Health check
  */
-export const healthCheck = async (
-  options?: Parameters<typeof customFetch>[1],
-): Promise<HealthStatus> => {
-  return customFetch<HealthStatus>(getHealthCheckUrl(), {
+export const healthCheck = async ( options?: Parameters<typeof customFetch>[1]): Promise<HealthStatus> => {
+
+  return customFetch<HealthStatus>(getHealthCheckUrl(),
+  {
     ...options,
-    method: "GET",
-  });
-};
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
 
 export const getHealthCheckQueryKey = () => {
-  return [`/api/healthz`] as const;
-};
+    return [
+    `/api/healthz`
+    ] as const;
+    }
 
-export const getHealthCheckQueryOptions = <
-  TData = Awaited<ReturnType<typeof healthCheck>>,
-  TError = ErrorType<unknown>,
->(options?: {
-  query?: UseQueryOptions<
-    Awaited<ReturnType<typeof healthCheck>>,
-    TError,
-    TData
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}) => {
-  const { query: queryOptions, request: requestOptions } = options ?? {};
 
-  const queryKey = queryOptions?.queryKey ?? getHealthCheckQueryKey();
+export const getHealthCheckQueryOptions = <TData = Awaited<ReturnType<typeof healthCheck>>, TError = ErrorType<unknown>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof healthCheck>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
 
-  const queryFn: QueryFunction<Awaited<ReturnType<typeof healthCheck>>> = ({
-    signal,
-  }) => healthCheck({ signal, ...requestOptions });
+const {query: queryOptions, request: requestOptions} = options ?? {};
 
-  return { queryKey, queryFn, ...queryOptions } as UseQueryOptions<
-    Awaited<ReturnType<typeof healthCheck>>,
-    TError,
-    TData
-  > & { queryKey: QueryKey };
-};
+  const queryKey =  queryOptions?.queryKey ?? getHealthCheckQueryKey();
 
-export type HealthCheckQueryResult = NonNullable<
-  Awaited<ReturnType<typeof healthCheck>>
->;
-export type HealthCheckQueryError = ErrorType<unknown>;
 
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof healthCheck>>> = ({ signal }) => healthCheck({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof healthCheck>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type HealthCheckQueryResult = NonNullable<Awaited<ReturnType<typeof healthCheck>>>
+export type HealthCheckQueryError = ErrorType<unknown>
+
+
+export function useHealthCheck<TData = Awaited<ReturnType<typeof healthCheck>>, TError = ErrorType<unknown>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof healthCheck>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof healthCheck>>,
+          TError,
+          Awaited<ReturnType<typeof healthCheck>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useHealthCheck<TData = Awaited<ReturnType<typeof healthCheck>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof healthCheck>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof healthCheck>>,
+          TError,
+          Awaited<ReturnType<typeof healthCheck>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useHealthCheck<TData = Awaited<ReturnType<typeof healthCheck>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof healthCheck>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
 /**
  * @summary Health check
  */
 
-export function useHealthCheck<
-  TData = Awaited<ReturnType<typeof healthCheck>>,
-  TError = ErrorType<unknown>,
->(options?: {
-  query?: UseQueryOptions<
-    Awaited<ReturnType<typeof healthCheck>>,
-    TError,
-    TData
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseQueryResult<TData, TError> & { queryKey: QueryKey } {
-  const queryOptions = getHealthCheckQueryOptions(options);
+export function useHealthCheck<TData = Awaited<ReturnType<typeof healthCheck>>, TError = ErrorType<unknown>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof healthCheck>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
 
-  const query = useQuery(queryOptions) as UseQueryResult<TData, TError> & {
-    queryKey: QueryKey;
-  };
+  const queryOptions = getHealthCheckQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
 
   return withQueryKey(query, queryOptions.queryKey);
 }
 
+
+
+
+
+
+
 export const getStreamNutAiChatUrl = () => {
-  return `/api/nutai/chat`;
-};
+
+
+
+
+  return `/api/nutai/chat`
+}
 
 /**
  * Streams a response using the learner's recent chat, grade, and current subject.
  * @summary Stream a personalized NutAI response
  */
-export const streamNutAiChat = async (
-  nutAiChatRequest: NutAiChatRequest,
-  options?: Parameters<typeof customFetch>[1],
-): Promise<string> => {
-  const getHeaders = (
-    h?: NonNullable<RequestInit["headers"]>,
-  ): Record<string, string | readonly string[]> => {
+export const streamNutAiChat = async (nutAiChatRequest: NutAiChatRequest, options?: Parameters<typeof customFetch>[1]): Promise<string> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
     if (!h) return {};
     if (h instanceof Headers) return Object.fromEntries(h.entries());
     if (Symbol.iterator in h) {
       return Object.fromEntries(
-        Array.from(
-          h as Iterable<Iterable<string>>,
-          (entry) => Array.from(entry) as [string, string],
-        ),
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
       );
     }
     const headers: Record<string, string | readonly string[]> = {};
-    for (const [name, value] of Object.entries<
-      string | readonly string[] | undefined
-    >(h)) {
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
       if (value !== undefined) headers[name] = value;
     }
     return headers;
   };
-  return customFetch<string>(getStreamNutAiChatUrl(), {
+return customFetch<string>(getStreamNutAiChatUrl(),
+  {
     ...options,
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      ...getHeaders(options?.headers),
-    },
-    body: JSON.stringify(nutAiChatRequest),
-  });
-};
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(nutAiChatRequest)
+  }
+);}
 
-export const getStreamNutAiChatMutationKey = () => ["streamNutAiChat"] as const;
 
-export const getStreamNutAiChatMutationOptions = <
-  TError = ErrorType<ApiError>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof streamNutAiChat>>,
-    TError,
-    StreamNutAiChatMutationVariables,
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationOptions<
-  Awaited<ReturnType<typeof streamNutAiChat>>,
-  TError,
-  StreamNutAiChatMutationVariables,
-  TContext
-> => {
-  const mutationKey = getStreamNutAiChatMutationKey();
-  const { mutation: mutationOptions, request: requestOptions } = options
-    ? options.mutation &&
-      "mutationKey" in options.mutation &&
-      options.mutation.mutationKey
-      ? options
-      : { ...options, mutation: { ...options.mutation, mutationKey } }
-    : { mutation: { mutationKey }, request: undefined };
 
-  const mutationFn: MutationFunction<
-    Awaited<ReturnType<typeof streamNutAiChat>>,
-    StreamNutAiChatMutationVariables
-  > = (props) => {
-    const { data } = props ?? {};
 
-    return streamNutAiChat(data, requestOptions);
-  };
 
-  return { mutationFn, ...mutationOptions };
-};
+export const getStreamNutAiChatMutationKey = () => ['streamNutAiChat'] as const;
 
-export type StreamNutAiChatMutationResult = NonNullable<
-  Awaited<ReturnType<typeof streamNutAiChat>>
->;
-export type StreamNutAiChatMutationBody = BodyType<NutAiChatRequest>;
-export type StreamNutAiChatMutationError = ErrorType<ApiError>;
-export type StreamNutAiChatMutationVariables = {
-  data: BodyType<NutAiChatRequest>;
-};
+export const getStreamNutAiChatMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof streamNutAiChat>>, TError,StreamNutAiChatMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof streamNutAiChat>>, TError,StreamNutAiChatMutationVariables, TContext> => {
 
-/**
+const mutationKey = getStreamNutAiChatMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof streamNutAiChat>>, StreamNutAiChatMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  streamNutAiChat(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type StreamNutAiChatMutationResult = NonNullable<Awaited<ReturnType<typeof streamNutAiChat>>>
+    export type StreamNutAiChatMutationBody = BodyType<NutAiChatRequest>
+    export type StreamNutAiChatMutationError = ErrorType<ApiError>
+    export type StreamNutAiChatMutationVariables = {data: BodyType<NutAiChatRequest>}
+
+    /**
  * @summary Stream a personalized NutAI response
  */
-export const useStreamNutAiChat = <
-  TError = ErrorType<ApiError>,
-  TContext = unknown,
->(options?: {
-  mutation?: UseMutationOptions<
-    Awaited<ReturnType<typeof streamNutAiChat>>,
-    TError,
-    StreamNutAiChatMutationVariables,
-    TContext
-  >;
-  request?: SecondParameter<typeof customFetch>;
-}): UseMutationResult<
-  Awaited<ReturnType<typeof streamNutAiChat>>,
-  TError,
-  StreamNutAiChatMutationVariables,
-  TContext
-> => {
-  return useMutation(getStreamNutAiChatMutationOptions(options));
-};
+export const useStreamNutAiChat = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof streamNutAiChat>>, TError,StreamNutAiChatMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof streamNutAiChat>>,
+        TError,
+        StreamNutAiChatMutationVariables,
+        TContext
+      > => {
+      return useMutation(getStreamNutAiChatMutationOptions(options), queryClient);
+    }
+
+export const getReviewStudyScanUrl = () => {
+
+
+
+
+  return `/api/nutai/scan-review`
+}
+
+/**
+ * Uses NutAI vision to read and give formative feedback on a student work image. The image is processed for this request and is not retained.
+ * @summary Review a learner's photographed work
+ */
+export const reviewStudyScan = async (nutAiScanReviewRequest: NutAiScanReviewRequest, options?: Parameters<typeof customFetch>[1]): Promise<ScanReviewResult> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<ScanReviewResult>(getReviewStudyScanUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(nutAiScanReviewRequest)
+  }
+);}
+
+
+
+
+
+export const getReviewStudyScanMutationKey = () => ['reviewStudyScan'] as const;
+
+export const getReviewStudyScanMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reviewStudyScan>>, TError,ReviewStudyScanMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof reviewStudyScan>>, TError,ReviewStudyScanMutationVariables, TContext> => {
+
+const mutationKey = getReviewStudyScanMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof reviewStudyScan>>, ReviewStudyScanMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  reviewStudyScan(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type ReviewStudyScanMutationResult = NonNullable<Awaited<ReturnType<typeof reviewStudyScan>>>
+    export type ReviewStudyScanMutationBody = BodyType<NutAiScanReviewRequest>
+    export type ReviewStudyScanMutationError = ErrorType<ApiError>
+    export type ReviewStudyScanMutationVariables = {data: BodyType<NutAiScanReviewRequest>}
+
+    /**
+ * @summary Review a learner's photographed work
+ */
+export const useReviewStudyScan = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof reviewStudyScan>>, TError,ReviewStudyScanMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof reviewStudyScan>>,
+        TError,
+        ReviewStudyScanMutationVariables,
+        TContext
+      > => {
+      return useMutation(getReviewStudyScanMutationOptions(options), queryClient);
+    }
+
+export const getStartGhostSessionUrl = () => {
+
+
+
+
+  return `/api/nutai/ghost-sessions`
+}
+
+/**
+ * @summary Start a personalized Ghost Mode practice session
+ */
+export const startGhostSession = async (ghostSessionStartInput: GhostSessionStartInput, options?: Parameters<typeof customFetch>[1]): Promise<GhostSessionStartResult> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<GhostSessionStartResult>(getStartGhostSessionUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(ghostSessionStartInput)
+  }
+);}
+
+
+
+
+
+export const getStartGhostSessionMutationKey = () => ['startGhostSession'] as const;
+
+export const getStartGhostSessionMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof startGhostSession>>, TError,StartGhostSessionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof startGhostSession>>, TError,StartGhostSessionMutationVariables, TContext> => {
+
+const mutationKey = getStartGhostSessionMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof startGhostSession>>, StartGhostSessionMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  startGhostSession(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type StartGhostSessionMutationResult = NonNullable<Awaited<ReturnType<typeof startGhostSession>>>
+    export type StartGhostSessionMutationBody = BodyType<GhostSessionStartInput>
+    export type StartGhostSessionMutationError = ErrorType<ApiError>
+    export type StartGhostSessionMutationVariables = {data: BodyType<GhostSessionStartInput>}
+
+    /**
+ * @summary Start a personalized Ghost Mode practice session
+ */
+export const useStartGhostSession = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof startGhostSession>>, TError,StartGhostSessionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof startGhostSession>>,
+        TError,
+        StartGhostSessionMutationVariables,
+        TContext
+      > => {
+      return useMutation(getStartGhostSessionMutationOptions(options), queryClient);
+    }
+
+export const getSubmitGhostAnswerUrl = (sessionId: number,) => {
+
+
+
+
+  return `/api/nutai/ghost-sessions/${sessionId}/turns`
+}
+
+/**
+ * @summary Evaluate a learner answer and continue Ghost Mode
+ */
+export const submitGhostAnswer = async (sessionId: number,
+    ghostAnswerInput: GhostAnswerInput, options?: Parameters<typeof customFetch>[1]): Promise<GhostAnswerResult> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<GhostAnswerResult>(getSubmitGhostAnswerUrl(sessionId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(ghostAnswerInput)
+  }
+);}
+
+
+
+
+
+export const getSubmitGhostAnswerMutationKey = () => ['submitGhostAnswer'] as const;
+
+export const getSubmitGhostAnswerMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitGhostAnswer>>, TError,SubmitGhostAnswerMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof submitGhostAnswer>>, TError,SubmitGhostAnswerMutationVariables, TContext> => {
+
+const mutationKey = getSubmitGhostAnswerMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof submitGhostAnswer>>, SubmitGhostAnswerMutationVariables> = (props) => {
+          const {sessionId,data} = props ?? {};
+
+          return  submitGhostAnswer(sessionId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SubmitGhostAnswerMutationResult = NonNullable<Awaited<ReturnType<typeof submitGhostAnswer>>>
+    export type SubmitGhostAnswerMutationBody = BodyType<GhostAnswerInput>
+    export type SubmitGhostAnswerMutationError = ErrorType<ApiError>
+    export type SubmitGhostAnswerMutationVariables = {sessionId: number;data: BodyType<GhostAnswerInput>}
+
+    /**
+ * @summary Evaluate a learner answer and continue Ghost Mode
+ */
+export const useSubmitGhostAnswer = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof submitGhostAnswer>>, TError,SubmitGhostAnswerMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof submitGhostAnswer>>,
+        TError,
+        SubmitGhostAnswerMutationVariables,
+        TContext
+      > => {
+      return useMutation(getSubmitGhostAnswerMutationOptions(options), queryClient);
+    }
+
+export const getCompleteGhostSessionUrl = (sessionId: number,) => {
+
+
+
+
+  return `/api/nutai/ghost-sessions/${sessionId}/complete`
+}
+
+/**
+ * @summary Finish and save a Ghost Mode session
+ */
+export const completeGhostSession = async (sessionId: number,
+    ghostSessionCompleteInput: GhostSessionCompleteInput, options?: Parameters<typeof customFetch>[1]): Promise<StudyActivity> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<StudyActivity>(getCompleteGhostSessionUrl(sessionId),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(ghostSessionCompleteInput)
+  }
+);}
+
+
+
+
+
+export const getCompleteGhostSessionMutationKey = () => ['completeGhostSession'] as const;
+
+export const getCompleteGhostSessionMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof completeGhostSession>>, TError,CompleteGhostSessionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof completeGhostSession>>, TError,CompleteGhostSessionMutationVariables, TContext> => {
+
+const mutationKey = getCompleteGhostSessionMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof completeGhostSession>>, CompleteGhostSessionMutationVariables> = (props) => {
+          const {sessionId,data} = props ?? {};
+
+          return  completeGhostSession(sessionId,data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CompleteGhostSessionMutationResult = NonNullable<Awaited<ReturnType<typeof completeGhostSession>>>
+    export type CompleteGhostSessionMutationBody = BodyType<GhostSessionCompleteInput>
+    export type CompleteGhostSessionMutationError = ErrorType<ApiError>
+    export type CompleteGhostSessionMutationVariables = {sessionId: number;data: BodyType<GhostSessionCompleteInput>}
+
+    /**
+ * @summary Finish and save a Ghost Mode session
+ */
+export const useCompleteGhostSession = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof completeGhostSession>>, TError,CompleteGhostSessionMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof completeGhostSession>>,
+        TError,
+        CompleteGhostSessionMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCompleteGhostSessionMutationOptions(options), queryClient);
+    }
+
+export const getGetStudyDataUrl = () => {
+
+
+
+
+  return `/api/studynut/data`
+}
+
+/**
+ * @summary Get the signed-in learner's saved study data
+ */
+export const getStudyData = async ( options?: Parameters<typeof customFetch>[1]): Promise<StudyDataResponse> => {
+
+  return customFetch<StudyDataResponse>(getGetStudyDataUrl(),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetStudyDataQueryKey = () => {
+    return [
+    `/api/studynut/data`
+    ] as const;
+    }
+
+
+export const getGetStudyDataQueryOptions = <TData = Awaited<ReturnType<typeof getStudyData>>, TError = ErrorType<ApiError>>( options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getStudyData>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetStudyDataQueryKey();
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getStudyData>>> = ({ signal }) => getStudyData({ signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getStudyData>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetStudyDataQueryResult = NonNullable<Awaited<ReturnType<typeof getStudyData>>>
+export type GetStudyDataQueryError = ErrorType<ApiError>
+
+
+export function useGetStudyData<TData = Awaited<ReturnType<typeof getStudyData>>, TError = ErrorType<ApiError>>(
+  options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getStudyData>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getStudyData>>,
+          TError,
+          Awaited<ReturnType<typeof getStudyData>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetStudyData<TData = Awaited<ReturnType<typeof getStudyData>>, TError = ErrorType<ApiError>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getStudyData>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getStudyData>>,
+          TError,
+          Awaited<ReturnType<typeof getStudyData>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetStudyData<TData = Awaited<ReturnType<typeof getStudyData>>, TError = ErrorType<ApiError>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getStudyData>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary Get the signed-in learner's saved study data
+ */
+
+export function useGetStudyData<TData = Awaited<ReturnType<typeof getStudyData>>, TError = ErrorType<ApiError>>(
+  options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getStudyData>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetStudyDataQueryOptions(options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getSaveStudyDataUrl = () => {
+
+
+
+
+  return `/api/studynut/data`
+}
+
+/**
+ * @summary Save the signed-in learner's study progress and tutor history
+ */
+export const saveStudyData = async (studyDataInput: StudyDataInput, options?: Parameters<typeof customFetch>[1]): Promise<StudyDataResponse> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<StudyDataResponse>(getSaveStudyDataUrl(),
+  {
+    ...options,
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(studyDataInput)
+  }
+);}
+
+
+
+
+
+export const getSaveStudyDataMutationKey = () => ['saveStudyData'] as const;
+
+export const getSaveStudyDataMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveStudyData>>, TError,SaveStudyDataMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof saveStudyData>>, TError,SaveStudyDataMutationVariables, TContext> => {
+
+const mutationKey = getSaveStudyDataMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof saveStudyData>>, SaveStudyDataMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  saveStudyData(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type SaveStudyDataMutationResult = NonNullable<Awaited<ReturnType<typeof saveStudyData>>>
+    export type SaveStudyDataMutationBody = BodyType<StudyDataInput>
+    export type SaveStudyDataMutationError = ErrorType<ApiError>
+    export type SaveStudyDataMutationVariables = {data: BodyType<StudyDataInput>}
+
+    /**
+ * @summary Save the signed-in learner's study progress and tutor history
+ */
+export const useSaveStudyData = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof saveStudyData>>, TError,SaveStudyDataMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof saveStudyData>>,
+        TError,
+        SaveStudyDataMutationVariables,
+        TContext
+      > => {
+      return useMutation(getSaveStudyDataMutationOptions(options), queryClient);
+    }
+
+export const getGetStudyActivitiesUrl = (params?: GetStudyActivitiesParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/studynut/activities?${stringifiedParams}` : `/api/studynut/activities`
+}
+
+/**
+ * @summary List the signed-in learner's recent saved activities
+ */
+export const getStudyActivities = async (params?: GetStudyActivitiesParams, options?: Parameters<typeof customFetch>[1]): Promise<StudyActivity[]> => {
+
+  return customFetch<StudyActivity[]>(getGetStudyActivitiesUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetStudyActivitiesQueryKey = (params?: GetStudyActivitiesParams,) => {
+    return [
+    `/api/studynut/activities`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetStudyActivitiesQueryOptions = <TData = Awaited<ReturnType<typeof getStudyActivities>>, TError = ErrorType<ApiError>>(params?: GetStudyActivitiesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getStudyActivities>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetStudyActivitiesQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getStudyActivities>>> = ({ signal }) => getStudyActivities(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getStudyActivities>>, TError, TData> & { queryKey: DataTag<QueryKey, TData, TError> }
+}
+
+export type GetStudyActivitiesQueryResult = NonNullable<Awaited<ReturnType<typeof getStudyActivities>>>
+export type GetStudyActivitiesQueryError = ErrorType<ApiError>
+
+
+export function useGetStudyActivities<TData = Awaited<ReturnType<typeof getStudyActivities>>, TError = ErrorType<ApiError>>(
+ params: undefined |  GetStudyActivitiesParams, options: { query:Partial<UseQueryOptions<Awaited<ReturnType<typeof getStudyActivities>>, TError, TData>> & Pick<
+        DefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getStudyActivities>>,
+          TError,
+          Awaited<ReturnType<typeof getStudyActivities>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  DefinedUseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetStudyActivities<TData = Awaited<ReturnType<typeof getStudyActivities>>, TError = ErrorType<ApiError>>(
+ params?: GetStudyActivitiesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getStudyActivities>>, TError, TData>> & Pick<
+        UndefinedInitialDataOptions<
+          Awaited<ReturnType<typeof getStudyActivities>>,
+          TError,
+          Awaited<ReturnType<typeof getStudyActivities>>
+        > , 'initialData'
+      >, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+export function useGetStudyActivities<TData = Awaited<ReturnType<typeof getStudyActivities>>, TError = ErrorType<ApiError>>(
+ params?: GetStudyActivitiesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getStudyActivities>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+  ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> }
+/**
+ * @summary List the signed-in learner's recent saved activities
+ */
+
+export function useGetStudyActivities<TData = Awaited<ReturnType<typeof getStudyActivities>>, TError = ErrorType<ApiError>>(
+ params?: GetStudyActivitiesParams, options?: { query?:Partial<UseQueryOptions<Awaited<ReturnType<typeof getStudyActivities>>, TError, TData>>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient
+ ):  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> } {
+
+  const queryOptions = getGetStudyActivitiesQueryOptions(params,options)
+
+  const query = useQuery(queryOptions, queryClient) as  UseQueryResult<TData, TError> & { queryKey: DataTag<QueryKey, TData, TError> };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getCreateStudyActivityUrl = () => {
+
+
+
+
+  return `/api/studynut/activities`
+}
+
+/**
+ * @summary Save a completed study or exam activity
+ */
+export const createStudyActivity = async (studyActivityInput: StudyActivityInput, options?: Parameters<typeof customFetch>[1]): Promise<StudyActivity> => {
+
+    const getHeaders = (h?: NonNullable<RequestInit['headers']>): Record<string, string | readonly string[]> => {
+    if (!h) return {};
+    if (h instanceof Headers) return Object.fromEntries(h.entries());
+    if (Symbol.iterator in h) {
+      return Object.fromEntries(
+        Array.from(h as Iterable<Iterable<string>>, (entry) => Array.from(entry) as [string, string]),
+      );
+    }
+    const headers: Record<string, string | readonly string[]> = {};
+    for (const [name, value] of Object.entries<string | readonly string[] | undefined>(h)) {
+      if (value !== undefined) headers[name] = value;
+    }
+    return headers;
+  };
+return customFetch<StudyActivity>(getCreateStudyActivityUrl(),
+  {
+    ...options,
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...getHeaders(options?.headers) },
+    body: JSON.stringify(studyActivityInput)
+  }
+);}
+
+
+
+
+
+export const getCreateStudyActivityMutationKey = () => ['createStudyActivity'] as const;
+
+export const getCreateStudyActivityMutationOptions = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createStudyActivity>>, TError,CreateStudyActivityMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+): UseMutationOptions<Awaited<ReturnType<typeof createStudyActivity>>, TError,CreateStudyActivityMutationVariables, TContext> => {
+
+const mutationKey = getCreateStudyActivityMutationKey();
+const {mutation: mutationOptions, request: requestOptions} = options ?
+      options.mutation && 'mutationKey' in options.mutation && options.mutation.mutationKey ?
+      options
+      : {...options, mutation: {...options.mutation, mutationKey}}
+      : {mutation: { mutationKey, }, request: undefined};
+
+
+
+
+      const mutationFn: MutationFunction<Awaited<ReturnType<typeof createStudyActivity>>, CreateStudyActivityMutationVariables> = (props) => {
+          const {data} = props ?? {};
+
+          return  createStudyActivity(data,requestOptions)
+        }
+
+
+
+
+
+
+  return  { mutationFn, ...mutationOptions }}
+
+    export type CreateStudyActivityMutationResult = NonNullable<Awaited<ReturnType<typeof createStudyActivity>>>
+    export type CreateStudyActivityMutationBody = BodyType<StudyActivityInput>
+    export type CreateStudyActivityMutationError = ErrorType<ApiError>
+    export type CreateStudyActivityMutationVariables = {data: BodyType<StudyActivityInput>}
+
+    /**
+ * @summary Save a completed study or exam activity
+ */
+export const useCreateStudyActivity = <TError = ErrorType<ApiError>,
+    TContext = unknown>(options?: { mutation?:UseMutationOptions<Awaited<ReturnType<typeof createStudyActivity>>, TError,CreateStudyActivityMutationVariables, TContext>, request?: SecondParameter<typeof customFetch>}
+ , queryClient?: QueryClient): UseMutationResult<
+        Awaited<ReturnType<typeof createStudyActivity>>,
+        TError,
+        CreateStudyActivityMutationVariables,
+        TContext
+      > => {
+      return useMutation(getCreateStudyActivityMutationOptions(options), queryClient);
+    }
+

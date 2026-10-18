@@ -9,9 +9,27 @@ import React, {
   useState,
 } from 'react';
 import { useColorScheme } from 'react-native';
+import { getGetStudyActivitiesQueryKey, useCreateStudyActivity, useGetStudyData, useSaveStudyData } from '@workspace/api-client-react';
+import { useQueryClient } from '@tanstack/react-query';
 import colors from '@/constants/colors';
 
 export type ThemeMode = 'auto' | 'light' | 'dark';
+
+export interface StudyTutorMessage {
+  id: string;
+  role: 'student' | 'tutor';
+  text: string;
+}
+
+export interface StudyExamResult {
+  id: string;
+  title: string;
+  subject: string;
+  score: number;
+  total: number;
+  elapsedMinutes: number;
+  completedAt: string;
+}
 
 export interface StudyData {
   grade: number;
@@ -27,18 +45,25 @@ export interface StudyData {
   completedExams: number;
   bookmarks: string[];
   weakQuestions: string[];
+  examHistory: StudyExamResult[];
+  tutorMessages: StudyTutorMessage[];
 }
 
 interface StudyContextValue {
   data: StudyData;
   ready: boolean;
+  syncStatus: 'local' | 'syncing' | 'synced' | 'offline';
   setGrade: (grade: number) => void;
   setSubject: (subject: string) => void;
   setGoals: (minutes: number, questions: number) => void;
   recordQuestion: (questionId: string, isCorrect: boolean) => void;
-  recordExam: (minutes: number) => void;
+  recordExam: (
+    minutes: number,
+    result?: Omit<StudyExamResult, 'id' | 'completedAt'>,
+  ) => void;
   toggleBookmark: (questionId: string) => void;
   removeWeakSpot: (questionId: string) => void;
+  setTutorMessages: (messages: StudyTutorMessage[]) => void;
 }
 
 interface ThemeContextValue {
@@ -63,6 +88,8 @@ const DEFAULT_STUDY: StudyData = {
   completedExams: 0,
   bookmarks: [],
   weakQuestions: [],
+  examHistory: [],
+  tutorMessages: [],
 };
 
 export const ThemePreferenceContext = createContext<ThemeContextValue | null>(
@@ -83,11 +110,25 @@ function previousDateKey() {
 export function StudyProvider({
   children,
   storageScope = 'guest',
-}: PropsWithChildren<{ storageScope?: string }>) {
+  remoteEnabled = false,
+}: PropsWithChildren<{ storageScope?: string; remoteEnabled?: boolean }>) {
   const [data, setData] = useState<StudyData>(DEFAULT_STUDY);
   const [ready, setReady] = useState(false);
   const [mode, setModeState] = useState<ThemeMode>('auto');
+  const [cloudScope, setCloudScope] = useState<string | null>(null);
   const systemScheme = useColorScheme();
+  const queryClient = useQueryClient();
+  const cloudQuery = useGetStudyData({
+    query: {
+      enabled: remoteEnabled && ready && cloudScope !== storageScope,
+      retry: 2,
+      refetchOnWindowFocus: true,
+      staleTime: 0,
+    },
+  });
+  const { mutate: saveCloudData, isPending: isSavingCloud, isError: cloudSaveFailed } =
+    useSaveStudyData();
+  const { mutate: createStudyActivity } = useCreateStudyActivity();
   const scopedStorageKey = `${STORAGE_KEY}:${encodeURIComponent(storageScope)}`;
 
   useEffect(() => {
@@ -103,6 +144,30 @@ export function StudyProvider({
         if (storedStudy) {
           const parsed = JSON.parse(storedStudy) as Partial<StudyData>;
           const restored = { ...DEFAULT_STUDY, ...parsed };
+          restored.examHistory = Array.isArray(parsed.examHistory)
+            ? parsed.examHistory.filter(
+                (item): item is StudyExamResult =>
+                  typeof item === 'object' &&
+                  item !== null &&
+                  typeof item.id === 'string' &&
+                  typeof item.title === 'string' &&
+                  typeof item.subject === 'string' &&
+                  typeof item.score === 'number' &&
+                  typeof item.total === 'number' &&
+                  typeof item.elapsedMinutes === 'number' &&
+                  typeof item.completedAt === 'string',
+              )
+            : [];
+          restored.tutorMessages = Array.isArray(parsed.tutorMessages)
+            ? parsed.tutorMessages.filter(
+                (item): item is StudyTutorMessage =>
+                  typeof item === 'object' &&
+                  item !== null &&
+                  typeof item.id === 'string' &&
+                  (item.role === 'student' || item.role === 'tutor') &&
+                  typeof item.text === 'string',
+              )
+            : [];
           if (restored.activeDate !== TODAY) {
             restored.todayQuestions = 0;
             restored.todayMinutes = 0;
@@ -136,6 +201,50 @@ export function StudyProvider({
       (error: unknown) => console.warn('Could not save STUDYNUT progress.', error),
     );
   }, [data, ready, scopedStorageKey]);
+
+  useEffect(() => {
+    if (!remoteEnabled || !ready || cloudScope === storageScope) return;
+    if (cloudQuery.isSuccess) {
+      const remoteData = cloudQuery.data.data;
+      if (remoteData) {
+        const restored = {
+          ...DEFAULT_STUDY,
+          ...remoteData,
+          examHistory: Array.isArray(remoteData.examHistory)
+            ? remoteData.examHistory
+            : [],
+          tutorMessages: Array.isArray(remoteData.tutorMessages)
+            ? remoteData.tutorMessages
+            : [],
+        };
+        setData(restored);
+        void AsyncStorage.setItem(scopedStorageKey, JSON.stringify(restored)).catch(
+          (error: unknown) => console.warn('Could not cache synced STUDYNUT progress.', error),
+        );
+      } else {
+        saveCloudData({ data: { data } });
+      }
+      setCloudScope(storageScope);
+    }
+  }, [
+    cloudQuery.data,
+    cloudQuery.isSuccess,
+    cloudScope,
+    data,
+    ready,
+    remoteEnabled,
+    saveCloudData,
+    scopedStorageKey,
+    storageScope,
+  ]);
+
+  useEffect(() => {
+    if (!remoteEnabled || !ready || cloudScope !== storageScope) return;
+    const timeout = setTimeout(() => {
+      saveCloudData({ data: { data } });
+    }, 900);
+    return () => clearTimeout(timeout);
+  }, [cloudScope, data, ready, remoteEnabled, saveCloudData, storageScope]);
 
   const setGrade = useCallback((grade: number) => {
     setData((current) => ({
@@ -183,8 +292,12 @@ export function StudyProvider({
     });
   }, []);
 
-  const recordExam = useCallback((minutes: number) => {
+  const recordExam = useCallback((
+    minutes: number,
+    result?: Omit<StudyExamResult, 'id' | 'completedAt'>,
+  ) => {
     const today = dateKey(new Date());
+    const completedAt = new Date().toISOString();
     setData((current) => {
       const streakDays =
         current.lastStudyDate === today
@@ -200,9 +313,38 @@ export function StudyProvider({
         streakDays,
         todayMinutes: (isNewDay ? 0 : current.todayMinutes) + Math.max(1, minutes),
         completedExams: current.completedExams + 1,
+        examHistory: result
+          ? [
+              {
+                ...result,
+                id: `exam-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+                completedAt,
+              },
+              ...current.examHistory,
+            ].slice(0, 100)
+          : current.examHistory,
       };
     });
-  }, []);
+    if (remoteEnabled && result) {
+      createStudyActivity(
+        {
+          data: {
+            kind: 'exam-result',
+            subject: result.subject,
+            title: result.title,
+            details: { ...result, completedAt },
+          },
+        },
+        {
+          onSuccess: () => {
+            void queryClient.invalidateQueries({
+              queryKey: getGetStudyActivitiesQueryKey({ limit: 20 }),
+            });
+          },
+        },
+      );
+    }
+  }, [createStudyActivity, queryClient, remoteEnabled]);
 
   const toggleBookmark = useCallback((questionId: string) => {
     setData((current) => ({
@@ -220,6 +362,21 @@ export function StudyProvider({
     }));
   }, []);
 
+  const setTutorMessages = useCallback((messages: StudyTutorMessage[]) => {
+    setData((current) => {
+      const nextMessages = messages.slice(-100);
+      const unchanged =
+        current.tutorMessages.length === nextMessages.length &&
+        current.tutorMessages.every(
+          (message, index) =>
+            message.id === nextMessages[index]?.id &&
+            message.role === nextMessages[index]?.role &&
+            message.text === nextMessages[index]?.text,
+        );
+      return unchanged ? current : { ...current, tutorMessages: nextMessages };
+    });
+  }, []);
+
   const setMode = useCallback((nextMode: ThemeMode) => {
     setModeState(nextMode);
     AsyncStorage.setItem(THEME_KEY, nextMode).catch((error: unknown) =>
@@ -231,6 +388,13 @@ export function StudyProvider({
     () => ({
       data,
       ready,
+      syncStatus: !remoteEnabled
+        ? 'local' as const
+        : cloudQuery.isError || cloudSaveFailed
+          ? 'offline' as const
+          : cloudQuery.isFetching || isSavingCloud || cloudScope !== storageScope
+            ? 'syncing' as const
+            : 'synced' as const,
       setGrade,
       setSubject,
       setGoals,
@@ -238,10 +402,18 @@ export function StudyProvider({
       recordExam,
       toggleBookmark,
       removeWeakSpot,
+      setTutorMessages,
     }),
     [
       data,
       ready,
+      remoteEnabled,
+      cloudQuery.isError,
+      cloudQuery.isFetching,
+      cloudSaveFailed,
+      cloudScope,
+      storageScope,
+      isSavingCloud,
       setGrade,
       setSubject,
       setGoals,
@@ -249,6 +421,7 @@ export function StudyProvider({
       recordExam,
       toggleBookmark,
       removeWeakSpot,
+      setTutorMessages,
     ],
   );
   const themeValue = useMemo(() => ({ mode, setMode }), [mode, setMode]);
